@@ -1,0 +1,81 @@
+# Visual Studio / .NET / IDE / OS common ignores
+
+# Build output
+bin/
+obj/
+.artifacts/
+TestResults/
+
+# Build packages
+*.nupkg
+*.snupkg
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# NuGet
+packages/
+project.lock.json
+project.assets.json
+.nuget/
+packages.lock.json
+PackageDebugLog.*.txt
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Coverage and test results
+coverage/
+*.coverage
+*.coveragexml
+coverage*.info
+
+# Rider / ReSharper / dotCover
+_ReSharper*/
+*.DotSettings.user
+*.dotCover
+
+# MonoDevelop
+*.userprefs
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / local settings
+.env
+.env.*.local
+secrets.json
+appsettings.*.Local.json
+local.settings.json
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Ignore JetBrains caches (extra)
+.idea/*
+!.idea/.gitignore
+
+# Optional: lockfiles you may want to keep under source control can be excluded from ignore
+# (uncomment if you prefer to keep packages.lock.json tracked)
+# !packages.lock.json
