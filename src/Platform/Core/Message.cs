@@ -1,13 +1,22 @@
+using System.Text.Json;
 using Messaging.Platform.Core.Exceptions;
 
 namespace Messaging.Platform.Core;
 
+/// <summary>
+/// Represents a single immutable sendable message and its lifecycle state.
+/// This aggregate is the authoritative in-memory representation of a persisted message row.
+/// </summary>
 public sealed class Message
 {
     private readonly List<MessageParticipant> _participants;
     private readonly IReadOnlyList<MessageParticipant> _participantsReadOnly;
 
-    public Message(
+    /// <summary>
+    /// Rehydration constructor.
+    /// Intended for loading an existing message from persistence.
+    /// </summary>
+    internal Message(
         Guid id,
         string channel,
         MessageStatus status,
@@ -18,18 +27,26 @@ public sealed class Message
         DateTimeOffset? claimedAt,
         DateTimeOffset? sentAt,
         string? failureReason,
+        int attemptCount,
         string? templateKey,
         string? templateVersion,
         DateTimeOffset? templateResolvedAt,
         string? subject,
         string? textBody,
         string? htmlBody,
-        string? templateVariables,
+        JsonElement? templateVariables,
         IEnumerable<MessageParticipant>? participants = null)
     {
         ArgumentNullException.ThrowIfNull(channel);
 
         EnsureTemplateIdentityConstraint(contentSource, templateKey);
+
+        if (attemptCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(attemptCount),
+                "Attempt count cannot be negative.");
+        }
 
         Id = id;
         Channel = channel;
@@ -41,19 +58,102 @@ public sealed class Message
         ClaimedAt = claimedAt;
         SentAt = sentAt;
         FailureReason = failureReason;
+        AttemptCount = attemptCount;
         TemplateKey = templateKey;
         TemplateVersion = templateVersion;
         TemplateResolvedAt = templateResolvedAt;
         Subject = subject;
         TextBody = textBody;
         HtmlBody = htmlBody;
-        TemplateVariables = templateVariables;
+        TemplateVariables = CloneJson(templateVariables);
 
-        _participants = participants is null ? new List<MessageParticipant>() : new List<MessageParticipant>(participants);
+        _participants = participants is null
+            ? []
+            : [.. participants];
+
         _participantsReadOnly = _participants.AsReadOnly();
 
         EnsureParticipantMessageIds();
     }
+
+    /// <summary>
+    /// Creates a message that requires human approval before delivery.
+    /// CreatedAt / UpdatedAt are populated by persistence.
+    /// </summary>
+    public static Message CreatePendingApproval(
+        Guid id,
+        string channel,
+        MessageContentSource contentSource,
+        string? templateKey,
+        string? templateVersion,
+        DateTimeOffset? templateResolvedAt,
+        string? subject,
+        string? textBody,
+        string? htmlBody,
+        JsonElement? templateVariables,
+        IEnumerable<MessageParticipant>? participants = null)
+    {
+        return new Message(
+            id: id,
+            channel: channel,
+            status: MessageStatus.PendingApproval,
+            contentSource: contentSource,
+            createdAt: DateTimeOffset.MinValue,
+            updatedAt: DateTimeOffset.MinValue,
+            claimedBy: null,
+            claimedAt: null,
+            sentAt: null,
+            failureReason: null,
+            attemptCount: 0,
+            templateKey: templateKey,
+            templateVersion: templateVersion,
+            templateResolvedAt: templateResolvedAt,
+            subject: subject,
+            textBody: textBody,
+            htmlBody: htmlBody,
+            templateVariables: templateVariables,
+            participants: participants);
+    }
+
+    /// <summary>
+    /// Creates an auto-approved message that is immediately eligible for delivery.
+    /// CreatedAt / UpdatedAt are populated by persistence.
+    /// </summary>
+    public static Message CreateApproved(
+        Guid id,
+        string channel,
+        MessageContentSource contentSource,
+        string? templateKey,
+        string? templateVersion,
+        DateTimeOffset? templateResolvedAt,
+        string? subject,
+        string? textBody,
+        string? htmlBody,
+        JsonElement? templateVariables,
+        IEnumerable<MessageParticipant>? participants = null)
+    {
+        return new Message(
+            id: id,
+            channel: channel,
+            status: MessageStatus.Approved,
+            contentSource: contentSource,
+            createdAt: DateTimeOffset.MinValue,
+            updatedAt: DateTimeOffset.MinValue,
+            claimedBy: null,
+            claimedAt: null,
+            sentAt: null,
+            failureReason: null,
+            attemptCount: 0,
+            templateKey: templateKey,
+            templateVersion: templateVersion,
+            templateResolvedAt: templateResolvedAt,
+            subject: subject,
+            textBody: textBody,
+            htmlBody: htmlBody,
+            templateVariables: templateVariables,
+            participants: participants);
+    }
+
 
     public Guid Id { get; }
     public string Channel { get; }
@@ -65,32 +165,33 @@ public sealed class Message
     public DateTimeOffset? ClaimedAt { get; private set; }
     public DateTimeOffset? SentAt { get; private set; }
     public string? FailureReason { get; private set; }
-    public string? TemplateKey { get; private set; }
-    public string? TemplateVersion { get; private set; }
-    public DateTimeOffset? TemplateResolvedAt { get; private set; }
-    public string? Subject { get; private set; }
-    public string? TextBody { get; private set; }
-    public string? HtmlBody { get; private set; }
-    public string? TemplateVariables { get; private set; }
+    public int AttemptCount { get; private set; }
+    public string? TemplateKey { get; }
+    public string? TemplateVersion { get; }
+    public DateTimeOffset? TemplateResolvedAt { get; }
+    public string? Subject { get; }
+    public string? TextBody { get; }
+    public string? HtmlBody { get; }
+    public JsonElement? TemplateVariables { get; }
     public IReadOnlyList<MessageParticipant> Participants => _participantsReadOnly;
 
-    public void EnsureMutable()
-    {
-        if (!MessageLifecycle.IsContentMutable(Status))
-        {
-            throw new FrozenMessageContentException(Id, Status);
-        }
-    }
-
+    /// <summary>
+    /// Ensures the message is eligible to be claimed by a worker for delivery.
+    /// </summary>
     public void EnsureSendable()
     {
         if (!MessageLifecycle.IsSendable(Status))
         {
-            throw new InvalidMessageStatusTransitionException(Status, MessageStatus.Sending);
+            throw new InvalidMessageStatusTransitionException(
+                Status,
+                MessageStatus.Sending);
         }
     }
 
-    public void EnsureTerminal()
+    /// <summary>
+    /// Ensures the message is in a terminal state.
+    /// </summary>
+    public void EnsureIsTerminal()
     {
         if (!MessageLifecycle.IsTerminal(Status))
         {
@@ -99,153 +200,171 @@ public sealed class Message
         }
     }
 
-    public void UpdateContent(string? subject, string? textBody, string? htmlBody, DateTimeOffset updatedAt)
-    {
-        EnsureMutable();
-
-        Subject = subject;
-        TextBody = textBody;
-        HtmlBody = htmlBody;
-        UpdatedAt = updatedAt;
-    }
-
-    public void SetTemplateIdentity(
-        string? templateKey,
-        string? templateVersion,
-        DateTimeOffset? templateResolvedAt,
-        DateTimeOffset updatedAt)
-    {
-        EnsureMutable();
-        EnsureTemplateIdentityConstraint(ContentSource, templateKey);
-
-        TemplateKey = templateKey;
-        TemplateVersion = templateVersion;
-        TemplateResolvedAt = templateResolvedAt;
-        UpdatedAt = updatedAt;
-    }
-
-    public void SetTemplateVariables(string? templateVariables, DateTimeOffset updatedAt)
-    {
-        EnsureMutable();
-
-        TemplateVariables = templateVariables;
-        UpdatedAt = updatedAt;
-    }
-
-    public void ReplaceParticipants(IEnumerable<MessageParticipant> participants, DateTimeOffset updatedAt)
-    {
-        ArgumentNullException.ThrowIfNull(participants);
-        EnsureMutable();
-
-        var replacement = new List<MessageParticipant>(participants);
-        foreach (var participant in replacement)
-        {
-            EnsureParticipantBelongs(participant);
-        }
-
-        _participants.Clear();
-        _participants.AddRange(replacement);
-        UpdatedAt = updatedAt;
-    }
-
-    public void AddParticipant(MessageParticipant participant, DateTimeOffset updatedAt)
-    {
-        ArgumentNullException.ThrowIfNull(participant);
-        EnsureMutable();
-        EnsureParticipantBelongs(participant);
-
-        _participants.Add(participant);
-        UpdatedAt = updatedAt;
-    }
-
-    public bool RemoveParticipant(Guid participantId, DateTimeOffset updatedAt)
-    {
-        EnsureMutable();
-
-        var index = _participants.FindIndex(participant => participant.Id == participantId);
-        if (index < 0)
-        {
-            return false;
-        }
-
-        _participants.RemoveAt(index);
-        UpdatedAt = updatedAt;
-        return true;
-    }
-
-    public MessageStatusTransition Queue(DateTimeOffset queuedAt)
-    {
-        return TransitionTo(MessageStatus.Queued, queuedAt);
-    }
-
-    public MessageStatusTransition RequestApproval(DateTimeOffset requestedAt)
-    {
-        return TransitionTo(MessageStatus.PendingApproval, requestedAt);
-    }
-
-    public ReviewDecisionResult ApplyReviewDecision(
+    /// <summary>
+    /// Approves a pending message via a human review action.
+    /// Produces both a lifecycle transition and a review record.
+    /// </summary>
+    public ReviewDecisionResult Approve(
         Guid reviewId,
-        ReviewDecision decision,
         string decidedBy,
         DateTimeOffset decidedAt,
         string? notes,
         string actorType)
     {
         ArgumentNullException.ThrowIfNull(decidedBy);
-        EnsureApprovalActor(actorType);
 
-        var targetStatus = decision == ReviewDecision.Approved
-            ? MessageStatus.Approved
-            : MessageStatus.Rejected;
+        EnsureReviewActor(actorType);
+        EnsureReviewAllowed("Approval");
 
-        var transition = TransitionTo(targetStatus, decidedAt);
-        var review = new MessageReview(reviewId, Id, decision, decidedBy, decidedAt, notes);
+        var transition = TransitionTo(MessageStatus.Approved, decidedAt);
+        var review = new MessageReview(
+            reviewId,
+            Id,
+            ReviewDecision.Approved,
+            decidedBy,
+            decidedAt,
+            notes);
+
         return new ReviewDecisionResult(review, transition);
     }
 
-    public MessageStatusTransition StartSending(string claimedBy, DateTimeOffset claimedAt)
+    /// <summary>
+    /// Rejects a pending message via a human review action.
+    /// Produces both a lifecycle transition and a review record.
+    /// </summary>
+    public ReviewDecisionResult Reject(
+        Guid reviewId,
+        string decidedBy,
+        DateTimeOffset decidedAt,
+        string? notes,
+        string actorType)
+    {
+        ArgumentNullException.ThrowIfNull(decidedBy);
+
+        EnsureReviewActor(actorType);
+        EnsureReviewAllowed("Rejection");
+
+        var transition = TransitionTo(MessageStatus.Rejected, decidedAt);
+        var review = new MessageReview(
+            reviewId,
+            Id,
+            ReviewDecision.Rejected,
+            decidedBy,
+            decidedAt,
+            notes);
+
+        return new ReviewDecisionResult(review, transition);
+    }
+
+    /// <summary>
+    /// Claims the message for delivery by a worker.
+    /// </summary>
+    public MessageStatusTransition StartSending(
+        string claimedBy,
+        DateTimeOffset claimedAt)
     {
         ArgumentNullException.ThrowIfNull(claimedBy);
 
         var transition = TransitionTo(MessageStatus.Sending, claimedAt);
         ClaimedBy = claimedBy;
         ClaimedAt = claimedAt;
+
         return transition;
     }
 
-    public MessageStatusTransition MarkSent(DateTimeOffset sentAt)
+    /// <summary>
+    /// Records a successful delivery attempt.
+    /// </summary>
+    public MessageStatusTransition RecordSendSuccess(DateTimeOffset sentAt)
     {
+        if (Status != MessageStatus.Sending)
+        {
+            throw new InvalidOperationException(
+                $"Cannot record send success when message is in '{Status}' state.");
+        }
+
+        AttemptCount += 1;
+
         var transition = TransitionTo(MessageStatus.Sent, sentAt);
         SentAt = sentAt;
         FailureReason = null;
+
         return transition;
     }
 
-    public MessageStatusTransition MarkFailed(string? failureReason, DateTimeOffset failedAt)
+    /// <summary>
+    /// Records a failed delivery attempt and determines retry or terminal failure.
+    /// </summary>
+    public MessageStatusTransition RecordSendAttemptFailure(
+        int maxAttempts,
+        string? failureReason,
+        DateTimeOffset failedAt)
     {
-        var transition = TransitionTo(MessageStatus.Failed, failedAt);
+        if (maxAttempts <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxAttempts),
+                "Max attempts must be greater than zero.");
+        }
+
+        if (Status != MessageStatus.Sending)
+        {
+            throw new InvalidOperationException(
+                $"Cannot record a send failure when message is in '{Status}' state.");
+        }
+
+        AttemptCount += 1;
+
+        var nextStatus = AttemptCount < maxAttempts
+            ? MessageStatus.Approved
+            : MessageStatus.Failed;
+
+        var transition = TransitionTo(nextStatus, failedAt);
+
         FailureReason = failureReason;
         SentAt = null;
+
         return transition;
     }
 
+    /// <summary>
+    /// Cancels the message from any non-terminal state.
+    /// </summary>
     public MessageStatusTransition Cancel(DateTimeOffset canceledAt)
     {
         return TransitionTo(MessageStatus.Canceled, canceledAt);
     }
 
-    private MessageStatusTransition TransitionTo(MessageStatus toStatus, DateTimeOffset occurredAt)
+    /// <summary>
+    /// Transitions the message to a new status and records the logical event time.
+    /// </summary>
+    /// <remarks>
+    /// UpdatedAt represents the logical time of the state transition as observed by the caller.
+    /// Persisted timestamps are assigned by the database and may differ.
+    /// After persistence, the in-memory aggregate is considered dirty with respect to DB-owned timestamps.
+    /// See Platform.Persistence/README.md — Timestamp Ownership.
+    /// </remarks>
+    private MessageStatusTransition TransitionTo(
+        MessageStatus toStatus,
+        DateTimeOffset occurredAt)
     {
         var fromStatus = Status;
+
         MessageLifecycle.EnsureValidTransition(fromStatus, toStatus);
 
         Status = toStatus;
         UpdatedAt = occurredAt;
 
-        return new MessageStatusTransition(Id, fromStatus, toStatus, occurredAt);
+        return new MessageStatusTransition(
+            Id,
+            fromStatus,
+            toStatus,
+            occurredAt);
     }
 
-    private static void EnsureTemplateIdentityConstraint(MessageContentSource contentSource, string? templateKey)
+    private static void EnsureTemplateIdentityConstraint(
+        MessageContentSource contentSource,
+        string? templateKey)
     {
         if (contentSource == MessageContentSource.Template && templateKey is null)
         {
@@ -278,13 +397,40 @@ public sealed class Message
         }
     }
 
-    private static void EnsureApprovalActor(string actorType)
+    private static void EnsureReviewActor(ActorType actorType)
     {
-        ArgumentNullException.ThrowIfNull(actorType);
-
-        if (string.Equals(actorType, "Worker", StringComparison.OrdinalIgnoreCase))
+        if (!actorType.IsHuman)
         {
-            throw new ApprovalRuleViolationException("Workers cannot originate approval transitions.");
+            throw new ApprovalRuleViolationException(
+                "Approval may only be performed by human actors.");
         }
+    }
+
+    private void EnsureReviewAllowed(string actionLabel)
+    {
+        if (Status != MessageStatus.PendingApproval)
+        {
+            throw new ApprovalRuleViolationException(
+                $"{actionLabel} is only allowed when status is '{MessageStatus.PendingApproval}'. Current status: '{Status}'.");
+        }
+    }
+
+    private static JsonElement? CloneJson(JsonElement? templateVariables)
+    {
+        if (templateVariables is null)
+        {
+            return null;
+        }
+
+        var json = templateVariables.Value;
+
+        if (json.ValueKind == JsonValueKind.Undefined)
+        {
+            throw new ArgumentException(
+                "template_variables must be valid JSON.",
+                nameof(templateVariables));
+        }
+
+        return json.Clone();
     }
 }

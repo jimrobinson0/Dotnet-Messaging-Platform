@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Messaging.Platform.Core.csproj" />
+    <ProjectReference Include="..\Persistence\Messaging.Platform.Persistence.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

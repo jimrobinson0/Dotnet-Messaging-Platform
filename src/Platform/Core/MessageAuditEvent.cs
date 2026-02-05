@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Messaging.Platform.Core;
 
 public sealed class MessageAuditEvent
@@ -11,7 +13,7 @@ public sealed class MessageAuditEvent
         string actorType,
         string actorId,
         DateTimeOffset occurredAt,
-        string? metadataJson)
+        JsonElement? metadataJson)
     {
         ArgumentNullException.ThrowIfNull(eventType);
         ArgumentNullException.ThrowIfNull(actorType);
@@ -25,7 +27,7 @@ public sealed class MessageAuditEvent
         ActorType = actorType;
         ActorId = actorId;
         OccurredAt = occurredAt;
-        MetadataJson = metadataJson;
+        MetadataJson = CloneJson(metadataJson);
     }
 
     public Guid Id { get; }
@@ -36,5 +38,21 @@ public sealed class MessageAuditEvent
     public string ActorType { get; }
     public string ActorId { get; }
     public DateTimeOffset OccurredAt { get; }
-    public string? MetadataJson { get; }
+    public JsonElement? MetadataJson { get; }
+
+    private static JsonElement? CloneJson(JsonElement? metadataJson)
+    {
+        if (metadataJson is null)
+        {
+            return null;
+        }
+
+        var json = metadataJson.Value;
+        if (json.ValueKind == JsonValueKind.Undefined)
+        {
+            throw new ArgumentException("metadata_json must be valid JSON.", nameof(metadataJson));
+        }
+
+        return json.Clone();
+    }
 }

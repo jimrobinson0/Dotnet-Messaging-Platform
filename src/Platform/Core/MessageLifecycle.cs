@@ -8,15 +8,9 @@ public static class MessageLifecycle
     {
         return from switch
         {
-            MessageStatus.Draft => to is MessageStatus.Queued or MessageStatus.Canceled,
-            MessageStatus.Queued => to is MessageStatus.PendingApproval or MessageStatus.Canceled,
             MessageStatus.PendingApproval => to is MessageStatus.Approved or MessageStatus.Rejected or MessageStatus.Canceled,
             MessageStatus.Approved => to is MessageStatus.Sending or MessageStatus.Canceled,
-            MessageStatus.Sending => to is MessageStatus.Sent or MessageStatus.Failed,
-            MessageStatus.Sent => false,
-            MessageStatus.Failed => false,
-            MessageStatus.Rejected => false,
-            MessageStatus.Canceled => false,
+            MessageStatus.Sending => to is MessageStatus.Sent or MessageStatus.Failed or MessageStatus.Approved or MessageStatus.Canceled,
             _ => false
         };
     }
@@ -27,11 +21,6 @@ public static class MessageLifecycle
         {
             throw new InvalidMessageStatusTransitionException(from, to);
         }
-    }
-
-    public static bool IsContentMutable(MessageStatus status)
-    {
-        return status == MessageStatus.Draft;
     }
 
     public static bool IsSendable(MessageStatus status)

@@ -23,6 +23,9 @@
   <Folder Name="/src/Platform/Core/">
     <Project Path="src/Platform/Core/Messaging.Platform.Core.csproj" />
   </Folder>
+  <Folder Name="/src/Platform/Persistence/">
+    <Project Path="src/Platform/Persistence/Messaging.Platform.Persistence.csproj" />
+  </Folder>
   <Folder Name="/src/Workers/" />
   <Folder Name="/src/Workers/EmailDelivery/">
     <Project Path="src/Workers/EmailDelivery/Messaging.Workers.EmailDelivery.csproj" />
