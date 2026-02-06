@@ -40,4 +40,7 @@
   <Folder Name="/test/Platform.Core.Tests/">
     <Project Path="test/Platform.Core.Tests/Messaging.Platform.Core.Tests.csproj" />
   </Folder>
+  <Folder Name="/test/Platform.Persistence.Tests/">
+    <Project Path="test/Platform.Persistence.Tests/Messaging.Platform.Persistence.Tests.csproj" />
+  </Folder>
 </Solution>

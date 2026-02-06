@@ -209,7 +209,7 @@ public sealed class Message
         string decidedBy,
         DateTimeOffset decidedAt,
         string? notes,
-        string actorType)
+        ActorType actorType)
     {
         ArgumentNullException.ThrowIfNull(decidedBy);
 
@@ -237,7 +237,7 @@ public sealed class Message
         string decidedBy,
         DateTimeOffset decidedAt,
         string? notes,
-        string actorType)
+        ActorType actorType)
     {
         ArgumentNullException.ThrowIfNull(decidedBy);
 

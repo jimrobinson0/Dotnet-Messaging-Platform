@@ -19,7 +19,7 @@ public sealed class DbConnectionFactory
     public async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
     {
         var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
+        await connection.OpenAsync(cancellationToken);        
         return connection;
     }
 }
