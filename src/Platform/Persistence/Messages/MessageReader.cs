@@ -32,6 +32,81 @@ public sealed class MessageReader
         from messages m
         """;
 
+    private const string MessageByIdSql = """
+        select
+          m.id as Id,
+          m.channel as Channel,
+          m.status::text as Status,
+          m.content_source::text as ContentSource,
+          m.created_at as CreatedAt,
+          m.updated_at as UpdatedAt,
+          m.claimed_by as ClaimedBy,
+          m.claimed_at as ClaimedAt,
+          m.sent_at as SentAt,
+          m.failure_reason as FailureReason,
+          m.attempt_count as AttemptCount,
+          m.template_key as TemplateKey,
+          m.template_version as TemplateVersion,
+          m.template_resolved_at as TemplateResolvedAt,
+          m.subject as Subject,
+          m.text_body as TextBody,
+          m.html_body as HtmlBody,
+          m.template_variables::text as TemplateVariablesJson
+        from messages m
+        where m.id = @MessageId
+        """;
+
+    private const string MessageByIdForUpdateSql = """
+        select
+          m.id as Id,
+          m.channel as Channel,
+          m.status::text as Status,
+          m.content_source::text as ContentSource,
+          m.created_at as CreatedAt,
+          m.updated_at as UpdatedAt,
+          m.claimed_by as ClaimedBy,
+          m.claimed_at as ClaimedAt,
+          m.sent_at as SentAt,
+          m.failure_reason as FailureReason,
+          m.attempt_count as AttemptCount,
+          m.template_key as TemplateKey,
+          m.template_version as TemplateVersion,
+          m.template_resolved_at as TemplateResolvedAt,
+          m.subject as Subject,
+          m.text_body as TextBody,
+          m.html_body as HtmlBody,
+          m.template_variables::text as TemplateVariablesJson
+        from messages m
+        where m.id = @MessageId
+        for update
+        """;
+
+    private const string PendingApprovalSql = """
+        select
+          m.id as Id,
+          m.channel as Channel,
+          m.status::text as Status,
+          m.content_source::text as ContentSource,
+          m.created_at as CreatedAt,
+          m.updated_at as UpdatedAt,
+          m.claimed_by as ClaimedBy,
+          m.claimed_at as ClaimedAt,
+          m.sent_at as SentAt,
+          m.failure_reason as FailureReason,
+          m.attempt_count as AttemptCount,
+          m.template_key as TemplateKey,
+          m.template_version as TemplateVersion,
+          m.template_resolved_at as TemplateResolvedAt,
+          m.subject as Subject,
+          m.text_body as TextBody,
+          m.html_body as HtmlBody,
+          m.template_variables::text as TemplateVariablesJson
+        from messages m
+        where m.status = @Status::message_status
+        order by m.created_at
+        limit @Limit
+        """;
+
     private const string ParticipantSelectSql = """
         select
           p.id as Id,
@@ -65,7 +140,7 @@ public sealed class MessageReader
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<MessageRow>(
-                MessageSelectSql + "where m.id = @MessageId",
+                MessageByIdSql,
                 new { MessageId = messageId },
                 transaction);
 
@@ -98,7 +173,7 @@ public sealed class MessageReader
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<MessageRow>(
-                MessageSelectSql + "where m.id = @MessageId for update",
+                MessageByIdForUpdateSql,
                 new { MessageId = messageId },
                 transaction);
 
@@ -136,7 +211,7 @@ public sealed class MessageReader
         try
         {
             var rows = (await connection.QueryAsync<MessageRow>(
-                MessageSelectSql + "where m.status = @Status::message_status order by m.created_at limit @Limit",
+                PendingApprovalSql,
                 new
                 {
                     Status = MessageStatus.PendingApproval.ToString(),
