@@ -21,7 +21,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             .Build();
     }
 
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => _container.GetConnectionString() + ";Search Path=core";
 
     public async Task InitializeAsync()
     {
