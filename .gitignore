@@ -37,7 +37,6 @@ ScaffoldingReadMe.txt
 
 # Logs and databases
 *.log
-*.sql
 *.sqlite
 *.db
 
