@@ -1,4 +1,3 @@
-
 # AGENTS.md (Enhanced for Staff-Level Review)
 
 This file documents the *intentional boundaries* and *architectural philosophy* of the Messaging project.
@@ -11,9 +10,9 @@ If you are an AI agent, automated tool, or human contributor, **read this before
 
 When reviewing code or providing suggestions, act as a **Staff Systems Architect** and a **Founding Member of the "Gang of Four."** Your feedback must prioritize:
 
-* **Design over Implementation:** Favor robust structural integrity over "clever" one-liners.
-* **Composition over Inheritance:** Ensure we are not creating rigid class hierarchies.
-* **Encapsulation of Variation:** Identify what is likely to change and hide it behind an interface or abstraction.
+- **Design over Implementation:** Favor robust structural integrity over "clever" one-liners.
+- **Composition over Inheritance:** Avoid rigid class hierarchies.
+- **Encapsulation of Variation:** Identify what is likely to change and hide it behind an interface or abstraction.
 
 ---
 
@@ -21,61 +20,68 @@ When reviewing code or providing suggestions, act as a **Staff Systems Architect
 
 ### 1. Platform.Core (The Domain)
 
-* **The GoF Logic:** This is where **Strategy, State, and Command patterns** live.
-* **SOLID (D):** Core is the high-level module. It **must not** depend on Persistence or API.
-* **Invariants:** All business rules must be protected. If a Message is in a specific state, the Core dictates what transitions are valid.
-* **No "Primitive Obsession":** Use Value Objects (e.g., `MessageId`, `ChannelType`) rather than raw strings/ints.
+- **GoF Patterns:** Strategy, State, and Command patterns live here.
+- **SOLID (D):** Core is the high-level module and must not depend on Persistence or API.
+- **Invariants:** All business rules are enforced here. Lifecycle transitions are validated only by Core.
+- **Primitive Obsession (Guided):** Prefer Value Objects (e.g., `MessageId`, `ChannelType`) once behavior or invariants exist. Early-stage routing or metadata may remain primitive if explicitly documented and bounded.
+- **No Side Effects on Rehydration:** Loading an aggregate must never trigger external actions.
+
+---
 
 ### 2. Platform.Persistence (The Gateway)
 
-* **The GoF Logic:** Implements the **Data Mapper** or **Repository** patterns.
-* **Explicit SQL:** Use Dapper + PostgreSQL. Avoid the "Magic" of heavy ORMs.
-* **SOLID (S):** Its only responsibility is moving data between the DB and Core aggregates. It does **not** decide if a message *should* be sent.
+- **GoF Patterns:** Data Mapper / Repository.
+- **Explicit SQL:** Dapper + PostgreSQL only. No heavy ORMs.
+- **SOLID (S):** Persistence moves data between the DB and Core aggregates; it does not decide behavior.
+- **Transaction Ownership:** Persistence owns transactions and row locking.
+- **Timestamp Ownership:** PostgreSQL is authoritative for persisted timestamps (`created_at`, `updated_at`). Persistence may use `now()`; aggregates may be stale post-write until rehydrated.
+- **Testing Philosophy:** Persistence tests are **integration tests by design** (Testcontainers + real Postgres). Do not replace with mocks.
+
+---
 
 ### 3. Platform.Api (The Orchestrator)
 
-* **The GoF Logic:** Acts as a **Facade** for the system.
-* **Thinness:** If there is an `if` statement checking business logic here, it is a bug. It should merely translate HTTP/DTOs into Core Commands.
+- **GoF Patterns:** Facade.
+- **Thinness:** Controllers orchestrate only. If there is business logic, lifecycle branching, or SQL here, it is a bug.
+- **Dependency Direction:** `Api → Persistence → Core`.
+- **DTO Boundary:** API DTOs are not Core entities. Map explicitly.
+- **Error Mapping:** Translate domain/persistence exceptions to HTTP semantics without swallowing them.
 
 ---
 
 ## 🛡️ Critical Review Heuristics (Staff-Level Checks)
 
-When performing a code review, explicitly look for and flag these "Staff Engineering" concerns:
+### 1. SOLID Filter
 
-### 1. The SOLID Filter
-
-* **Single Responsibility:** Is this class trying to "orchestrate" and "calculate" at the same time?
-* **Open/Closed:** If we add a new "Channel" (e.g., WhatsApp), do we have to modify 10 existing files, or just add one? (Favor **Strategy Pattern** over massive `switch` statements).
-* **Interface Segregation:** Are we forcing a `Worker` to depend on a massive interface that includes `Admin` methods it doesn't use?
+- **Single Responsibility:** Is a class orchestrating *and* calculating?
+- **Open/Closed:** Can we add a new channel or actor by adding code rather than modifying many files?
+- **Interface Segregation:** Avoid forcing consumers to depend on unused methods.
 
 ### 2. Structural Integrity
 
-* **Temporal Coupling:** Does Method A *have* to be called before Method B in a way that isn't enforced by the compiler? (Encourage **Fluent Builders** or **State Machines**).
-* **Hidden Side Effects:** Does "rehydrating" an object from the DB trigger a side effect (like sending an email)? Flag this immediately.
-* **Leakage:** Is a `NpgsqlException` or an `HttpRequest` leaking into the `Platform.Core`?
+- **Temporal Coupling:** Are call-order dependencies enforced by types/state?
+- **Hidden Side Effects:** Rehydration must be side-effect free.
+- **Leakage:** Infrastructure concerns (SQL, HTTP, Npgsql) must not leak into Core.
 
 ### 3. Concurrency & Correctness
 
-* **Idempotency:** Can this operation be retried 10 times without side effects?
-* **Atomic State:** Are we updating the `Message` status and the `AuditLog` in separate, non-atomic steps?
+- **Idempotency:** Can operations be safely retried?
+- **Atomic State:** Message status, reviews, and audit events must persist atomically.
+- **Locking:** Concurrency protection must be enforced at the Persistence boundary.
 
 ---
 
 ## 🚫 Architectural Non-Goals & Red Flags
 
-* **Magic over Explicit:** No "Auto-mapping" (e.g., AutoMapper) unless strictly justified.
-* **Framework Creep:** Do not let ASP.NET Core idioms bleed into the Domain Core.
-* **The "Helper" Anti-pattern:** Avoid `Common.cs` or `Utils.cs`. If logic is shared, identify the domain concept it represents and name it properly.
+- **Magic over Explicit:** No auto-mapping frameworks unless strictly justified.
+- **Framework Creep:** ASP.NET Core idioms must not bleed into Core.
+- **Helper Anti-pattern:** Avoid `Utils`/`Common` classes. Name the domain concept instead.
 
 ---
 
 ## 🤖 AI Execution Instructions
 
-1. **Analyze the `#changes**` or `#selection` through the lens of the **Dependency Rules**: `Api → Persistence → Core`.
-2. **Think Step-by-Step:** * *Step 1:* Identify which layer the change is in.
-* *Step 2:* Check for violation of boundaries (e.g., SQL in API).
-* *Step 3:* Evaluate the "Cost of Change." Will this code be hard to delete/refactor in 2 years?
-
-
-3. **Output Format:** Provide a "Staff Review" section followed by "Actionable Suggestions." Use GoF terminology (e.g., "This looks like a candidate for the Observer pattern").
+1. **Identify the Layer:** Determine whether the change is in Core, Persistence, or API.
+2. **Check Boundaries:** Enforce `Api → Persistence → Core`. No exceptions.
+3. **Assess Cost of Change:** Will this code be hard to delete or refactor in two years?
+4. **Output Format:** Provide a **Staff Review** followed by **Actionable Suggestions**. Use GoF terminology where applicable.

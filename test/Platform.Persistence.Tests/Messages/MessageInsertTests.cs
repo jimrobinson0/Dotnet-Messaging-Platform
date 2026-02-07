@@ -153,7 +153,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
 
             Assert.Equal(messageId, loaded.Id);
-            Assert.Equal("sms", loaded.Channel);
+            Assert.Equal("email", loaded.Channel);
             Assert.Empty(loaded.Participants);
         }
     }

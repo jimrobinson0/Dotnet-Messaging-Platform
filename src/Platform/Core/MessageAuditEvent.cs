@@ -27,7 +27,7 @@ public sealed class MessageAuditEvent
         ActorType = actorType;
         ActorId = actorId;
         OccurredAt = occurredAt;
-        MetadataJson = CloneJson(metadataJson);
+        MetadataJson = JsonGuard.EnsureCloned(metadataJson, nameof(metadataJson));
     }
 
     public Guid Id { get; }
@@ -40,19 +40,4 @@ public sealed class MessageAuditEvent
     public DateTimeOffset OccurredAt { get; }
     public JsonElement? MetadataJson { get; }
 
-    private static JsonElement? CloneJson(JsonElement? metadataJson)
-    {
-        if (metadataJson is null)
-        {
-            return null;
-        }
-
-        var json = metadataJson.Value;
-        if (json.ValueKind == JsonValueKind.Undefined)
-        {
-            throw new ArgumentException("metadata_json must be valid JSON.", nameof(metadataJson));
-        }
-
-        return json.Clone();
-    }
 }

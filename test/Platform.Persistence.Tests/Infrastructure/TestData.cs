@@ -61,7 +61,7 @@ internal static class TestData
     {
         return Message.CreatePendingApproval(
             id: messageId,
-            channel: "sms",
+            channel: "email",
             contentSource: MessageContentSource.Direct,
             templateKey: null,
             templateVersion: null,

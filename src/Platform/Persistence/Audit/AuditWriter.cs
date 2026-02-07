@@ -3,7 +3,6 @@ using Dapper;
 using Messaging.Platform.Core;
 using Messaging.Platform.Persistence.Db;
 using Messaging.Platform.Persistence.Exceptions;
-using Messaging.Platform.Persistence.Messages;
 using Npgsql;
 
 namespace Messaging.Platform.Persistence.Audit;
@@ -35,7 +34,7 @@ public sealed class AuditWriter
         );
         """;
 
-    public async Task InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction)
+    public async Task InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
         var connection = DbGuard.GetConnection(transaction);
@@ -50,12 +49,13 @@ public sealed class AuditWriter
             auditEvent.ActorType,
             auditEvent.ActorId,
             auditEvent.OccurredAt,
-            MetadataJson = MessageMapper.SerializeJson(auditEvent.MetadataJson)
+            MetadataJson = auditEvent.MetadataJson?.GetRawText()
         };
 
         try
         {
-            await connection.ExecuteAsync(InsertSql, parameters, transaction);
+            await connection.ExecuteAsync(
+                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex)
         {

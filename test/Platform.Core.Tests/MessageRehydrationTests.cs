@@ -1,4 +1,5 @@
 namespace Messaging.Platform.Core.Tests;
+
 public class MessageRehydrationTests
 {
     [Fact]

@@ -26,7 +26,7 @@ public sealed class ParticipantWriter
         );
         """;
 
-    public async Task InsertAsync(IEnumerable<MessageParticipant> participants, DbTransaction transaction)
+    public async Task InsertAsync(IEnumerable<MessageParticipant> participants, DbTransaction transaction, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(participants);
         var connection = DbGuard.GetConnection(transaction);
@@ -49,7 +49,11 @@ public sealed class ParticipantWriter
 
         try
         {
-            await connection.ExecuteAsync(InsertSql, rows, transaction);
+            foreach (var row in rows)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(InsertSql, row, transaction: transaction, cancellationToken: cancellationToken));
+            }
         }
         catch (PostgresException ex)
         {

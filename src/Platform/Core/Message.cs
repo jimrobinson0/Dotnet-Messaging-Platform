@@ -65,7 +65,7 @@ public sealed class Message
         Subject = subject;
         TextBody = textBody;
         HtmlBody = htmlBody;
-        TemplateVariables = CloneJson(templateVariables);
+        TemplateVariables = JsonGuard.EnsureCloned(templateVariables, nameof(templateVariables));
 
         _participants = participants is null
             ? []
@@ -277,20 +277,16 @@ public sealed class Message
     /// </summary>
     public MessageStatusTransition RecordSendSuccess(DateTimeOffset sentAt)
     {
-        if (Status != MessageStatus.Sending)
-        {
-            throw new InvalidOperationException(
-                $"Cannot record send success when message is in '{Status}' state.");
-        }
-
         AttemptCount += 1;
 
         var transition = TransitionTo(MessageStatus.Sent, sentAt);
+
         SentAt = sentAt;
         FailureReason = null;
 
         return transition;
     }
+
 
     /// <summary>
     /// Records a failed delivery attempt and determines retry or terminal failure.
@@ -305,12 +301,6 @@ public sealed class Message
             throw new ArgumentOutOfRangeException(
                 nameof(maxAttempts),
                 "Max attempts must be greater than zero.");
-        }
-
-        if (Status != MessageStatus.Sending)
-        {
-            throw new InvalidOperationException(
-                $"Cannot record a send failure when message is in '{Status}' state.");
         }
 
         AttemptCount += 1;
@@ -415,22 +405,4 @@ public sealed class Message
         }
     }
 
-    private static JsonElement? CloneJson(JsonElement? templateVariables)
-    {
-        if (templateVariables is null)
-        {
-            return null;
-        }
-
-        var json = templateVariables.Value;
-
-        if (json.ValueKind == JsonValueKind.Undefined)
-        {
-            throw new ArgumentException(
-                "template_variables must be valid JSON.",
-                nameof(templateVariables));
-        }
-
-        return json.Clone();
-    }
 }

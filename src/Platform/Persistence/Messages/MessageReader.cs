@@ -9,8 +9,7 @@ namespace Messaging.Platform.Persistence.Messages;
 
 public sealed class MessageReader
 {
-    private const string MessageSelectSql = """
-        select
+    private const string MessageColumns = """
           m.id as Id,
           m.channel as Channel,
           m.status::text as Status,
@@ -29,80 +28,29 @@ public sealed class MessageReader
           m.text_body as TextBody,
           m.html_body as HtmlBody,
           m.template_variables::text as TemplateVariablesJson
-        from messages m
         """;
 
-    private const string MessageByIdSql = """
+    private static readonly string MessageByIdSql = $"""
         select
-          m.id as Id,
-          m.channel as Channel,
-          m.status::text as Status,
-          m.content_source::text as ContentSource,
-          m.created_at as CreatedAt,
-          m.updated_at as UpdatedAt,
-          m.claimed_by as ClaimedBy,
-          m.claimed_at as ClaimedAt,
-          m.sent_at as SentAt,
-          m.failure_reason as FailureReason,
-          m.attempt_count as AttemptCount,
-          m.template_key as TemplateKey,
-          m.template_version as TemplateVersion,
-          m.template_resolved_at as TemplateResolvedAt,
-          m.subject as Subject,
-          m.text_body as TextBody,
-          m.html_body as HtmlBody,
-          m.template_variables::text as TemplateVariablesJson
+        {MessageColumns}
         from messages m
         where m.id = @MessageId
         """;
 
-    private const string MessageByIdForUpdateSql = """
+    private static readonly string MessageByIdForUpdateSql = $"""
         select
-          m.id as Id,
-          m.channel as Channel,
-          m.status::text as Status,
-          m.content_source::text as ContentSource,
-          m.created_at as CreatedAt,
-          m.updated_at as UpdatedAt,
-          m.claimed_by as ClaimedBy,
-          m.claimed_at as ClaimedAt,
-          m.sent_at as SentAt,
-          m.failure_reason as FailureReason,
-          m.attempt_count as AttemptCount,
-          m.template_key as TemplateKey,
-          m.template_version as TemplateVersion,
-          m.template_resolved_at as TemplateResolvedAt,
-          m.subject as Subject,
-          m.text_body as TextBody,
-          m.html_body as HtmlBody,
-          m.template_variables::text as TemplateVariablesJson
+        {MessageColumns}
         from messages m
         where m.id = @MessageId
         for update
         """;
 
-    private const string PendingApprovalSql = """
+    private static readonly string ListSql = $"""
         select
-          m.id as Id,
-          m.channel as Channel,
-          m.status::text as Status,
-          m.content_source::text as ContentSource,
-          m.created_at as CreatedAt,
-          m.updated_at as UpdatedAt,
-          m.claimed_by as ClaimedBy,
-          m.claimed_at as ClaimedAt,
-          m.sent_at as SentAt,
-          m.failure_reason as FailureReason,
-          m.attempt_count as AttemptCount,
-          m.template_key as TemplateKey,
-          m.template_version as TemplateVersion,
-          m.template_resolved_at as TemplateResolvedAt,
-          m.subject as Subject,
-          m.text_body as TextBody,
-          m.html_body as HtmlBody,
-          m.template_variables::text as TemplateVariablesJson
+        {MessageColumns}
         from messages m
-        where m.status = @Status::message_status
+        where (@Status is null or m.status = @Status::message_status)
+          and (@CreatedAfter::timestamptz is null or m.created_at > @CreatedAfter)
         order by m.created_at
         limit @Limit
         """;
@@ -133,16 +81,84 @@ public sealed class MessageReader
         order by p.message_id, p.created_at
         """;
 
-    public async Task<Message> GetByIdAsync(Guid messageId, DbTransaction transaction)
+    /// <summary>
+    /// Loads a message by ID within a transactional context.
+    /// </summary>
+    public async Task<Message> GetByIdAsync(
+        Guid messageId,
+        DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
-        var connection = DbGuard.GetConnection(transaction);
+        return await GetByIdCoreAsync(
+            messageId, MessageByIdSql, DbGuard.GetConnection(transaction), transaction, cancellationToken);
+    }
 
+    /// <summary>
+    /// Loads a message by ID using a plain connection (no transaction overhead).
+    /// Suitable for read-only operations outside a unit of work.
+    /// </summary>
+    public async Task<Message> GetByIdAsync(
+        Guid messageId,
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetByIdCoreAsync(
+            messageId, MessageByIdSql, connection, transaction: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Loads a message by ID with a row-level lock (FOR UPDATE).
+    /// Must be called within a transaction.
+    /// </summary>
+    public async Task<Message> GetForUpdateAsync(
+        Guid messageId,
+        DbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetByIdCoreAsync(
+            messageId, MessageByIdForUpdateSql, DbGuard.GetConnection(transaction), transaction, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists messages within a transactional context with optional cursor-based pagination.
+    /// </summary>
+    public async Task<IReadOnlyList<Message>> ListAsync(
+        MessageStatus? status,
+        int limit,
+        DateTimeOffset? createdAfter,
+        DbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        return await ListCoreAsync(
+            status, limit, createdAfter, DbGuard.GetConnection(transaction), transaction, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists messages using a plain connection (no transaction overhead) with optional cursor-based pagination.
+    /// Suitable for read-only operations outside a unit of work.
+    /// </summary>
+    public async Task<IReadOnlyList<Message>> ListAsync(
+        MessageStatus? status,
+        int limit,
+        DateTimeOffset? createdAfter,
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        return await ListCoreAsync(
+            status, limit, createdAfter, connection, transaction: null, cancellationToken);
+    }
+
+    private async Task<Message> GetByIdCoreAsync(
+        Guid messageId,
+        string sql,
+        NpgsqlConnection connection,
+        DbTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
         try
         {
             var row = await connection.QuerySingleOrDefaultAsync<MessageRow>(
-                MessageByIdSql,
-                new { MessageId = messageId },
-                transaction);
+                new CommandDefinition(sql, new { MessageId = messageId }, transaction, cancellationToken: cancellationToken));
 
             if (row is null)
             {
@@ -150,9 +166,8 @@ public sealed class MessageReader
             }
 
             var participants = (await connection.QueryAsync<MessageParticipantRow>(
-                ParticipantSelectSql,
-                new { MessageId = messageId },
-                transaction)).ToList();
+                new CommandDefinition(ParticipantSelectSql, new { MessageId = messageId }, transaction, cancellationToken: cancellationToken)))
+                .ToList();
 
             return MessageMapper.RehydrateMessage(row, participants);
         }
@@ -166,58 +181,33 @@ public sealed class MessageReader
         }
     }
 
-    public async Task<Message> GetForUpdateAsync(Guid messageId, DbTransaction transaction)
-    {
-        var connection = DbGuard.GetConnection(transaction);
-
-        try
-        {
-            var row = await connection.QuerySingleOrDefaultAsync<MessageRow>(
-                MessageByIdForUpdateSql,
-                new { MessageId = messageId },
-                transaction);
-
-            if (row is null)
-            {
-                throw new NotFoundException($"Message '{messageId}' was not found.");
-            }
-
-            var participants = (await connection.QueryAsync<MessageParticipantRow>(
-                ParticipantSelectSql,
-                new { MessageId = messageId },
-                transaction)).ToList();
-
-            return MessageMapper.RehydrateMessage(row, participants);
-        }
-        catch (PostgresException ex)
-        {
-            throw new PersistenceException("Failed to load message for update.", ex);
-        }
-        catch (NpgsqlException ex)
-        {
-            throw new PersistenceException("Failed to load message for update.", ex);
-        }
-    }
-
-    public async Task<IReadOnlyList<Message>> ListPendingApprovalAsync(int limit, DbTransaction transaction)
+    private async Task<IReadOnlyList<Message>> ListCoreAsync(
+        MessageStatus? status,
+        int limit,
+        DateTimeOffset? createdAfter,
+        NpgsqlConnection connection,
+        DbTransaction? transaction,
+        CancellationToken cancellationToken)
     {
         if (limit <= 0)
         {
             return Array.Empty<Message>();
         }
 
-        var connection = DbGuard.GetConnection(transaction);
-
         try
         {
             var rows = (await connection.QueryAsync<MessageRow>(
-                PendingApprovalSql,
-                new
-                {
-                    Status = MessageStatus.PendingApproval.ToString(),
-                    Limit = limit
-                },
-                transaction)).ToList();
+                new CommandDefinition(
+                    ListSql,
+                    new
+                    {
+                        Status = status?.ToString(),
+                        CreatedAfter = createdAfter,
+                        Limit = limit
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken)))
+                .ToList();
 
             if (rows.Count == 0)
             {
@@ -227,9 +217,12 @@ public sealed class MessageReader
             var messageIds = rows.Select(row => row.Id).ToArray();
 
             var participantRows = (await connection.QueryAsync<MessageParticipantRow>(
-                ParticipantSelectByIdsSql,
-                new { MessageIds = messageIds },
-                transaction)).ToList();
+                new CommandDefinition(
+                    ParticipantSelectByIdsSql,
+                    new { MessageIds = messageIds },
+                    transaction,
+                    cancellationToken: cancellationToken)))
+                .ToList();
 
             var participantsByMessage = participantRows
                 .GroupBy(row => row.MessageId)
@@ -247,11 +240,11 @@ public sealed class MessageReader
         }
         catch (PostgresException ex)
         {
-            throw new PersistenceException("Failed to list pending approval messages.", ex);
+            throw new PersistenceException("Failed to list messages.", ex);
         }
         catch (NpgsqlException ex)
         {
-            throw new PersistenceException("Failed to list pending approval messages.", ex);
+            throw new PersistenceException("Failed to list messages.", ex);
         }
     }
 

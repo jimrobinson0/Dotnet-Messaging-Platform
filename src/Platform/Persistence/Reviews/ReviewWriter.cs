@@ -28,7 +28,7 @@ public sealed class ReviewWriter
         );
         """;
 
-    public async Task InsertAsync(MessageReview review, DbTransaction transaction)
+    public async Task InsertAsync(MessageReview review, DbTransaction transaction, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(review);
         var connection = DbGuard.GetConnection(transaction);
@@ -45,7 +45,8 @@ public sealed class ReviewWriter
 
         try
         {
-            await connection.ExecuteAsync(InsertSql, parameters, transaction);
+            await connection.ExecuteAsync(
+                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {

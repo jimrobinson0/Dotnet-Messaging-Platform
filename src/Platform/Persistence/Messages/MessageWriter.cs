@@ -61,7 +61,7 @@ public sealed class MessageWriter
         where id = @Id;
         """;
 
-    public async Task InsertAsync(Message message, DbTransaction transaction)
+    public async Task InsertAsync(Message message, DbTransaction transaction, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         var connection = DbGuard.GetConnection(transaction);
@@ -88,7 +88,8 @@ public sealed class MessageWriter
 
         try
         {
-            await connection.ExecuteAsync(InsertSql, parameters, transaction);
+            await connection.ExecuteAsync(
+                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
@@ -104,7 +105,7 @@ public sealed class MessageWriter
         }
     }
 
-    public async Task UpdateAsync(Message message, DbTransaction transaction)
+    public async Task UpdateAsync(Message message, DbTransaction transaction, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         var connection = DbGuard.GetConnection(transaction);
@@ -122,7 +123,8 @@ public sealed class MessageWriter
 
         try
         {
-            var affected = await connection.ExecuteAsync(UpdateSql, parameters, transaction);
+            var affected = await connection.ExecuteAsync(
+                new CommandDefinition(UpdateSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
             if (affected == 0)
             {
                 throw new NotFoundException($"Message '{message.Id}' was not found.");
