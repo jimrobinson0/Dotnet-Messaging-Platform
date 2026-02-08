@@ -34,6 +34,9 @@ public sealed class CreateMessageRequest
 
     public JsonElement? TemplateVariables { get; init; }
 
+    [MaxLength(128)]
+    public string? IdempotencyKey { get; init; }
+
     public IReadOnlyList<MessageParticipantRequest> Participants { get; init; } = Array.Empty<MessageParticipantRequest>();
 
     [Required]

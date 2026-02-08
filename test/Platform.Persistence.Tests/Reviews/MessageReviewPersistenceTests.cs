@@ -30,7 +30,9 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
             await participantWriter.InsertAsync(message.Participants, uow.Transaction);
             await uow.CommitAsync();
         }
@@ -73,7 +75,9 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
             await participantWriter.InsertAsync(message.Participants, uow.Transaction);
             await uow.CommitAsync();
         }
@@ -115,7 +119,9 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
             await participantWriter.InsertAsync(message.Participants, uow.Transaction);
             await uow.CommitAsync();
         }
@@ -146,7 +152,9 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
             await participantWriter.InsertAsync(message.Participants, uow.Transaction);
             await uow.CommitAsync();
         }

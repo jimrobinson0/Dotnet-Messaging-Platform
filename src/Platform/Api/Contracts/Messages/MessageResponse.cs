@@ -21,6 +21,7 @@ public sealed class MessageResponse
     public string? Subject { get; init; }
     public string? TextBody { get; init; }
     public string? HtmlBody { get; init; }
+    public string? IdempotencyKey { get; init; }
     public JsonElement? TemplateVariables { get; init; }
     public IReadOnlyList<MessageParticipantResponse> Participants { get; init; } = Array.Empty<MessageParticipantResponse>();
 }

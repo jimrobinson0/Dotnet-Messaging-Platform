@@ -5,7 +5,7 @@ namespace Messaging.Platform.Api.Contracts.Messages;
 
 public static class MessageContractMappings
 {
-    public static CreateMessageCommand ToCommand(this CreateMessageRequest request)
+    public static CreateMessageCommand ToCommand(this CreateMessageRequest request, string? idempotencyKey)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -27,6 +27,7 @@ public static class MessageContractMappings
             TextBody: request.TextBody,
             HtmlBody: request.HtmlBody,
             TemplateVariables: request.TemplateVariables,
+            IdempotencyKey: idempotencyKey,
             Participants: participants,
             ActorType: request.ActorType,
             ActorId: request.ActorId);
@@ -79,6 +80,7 @@ public static class MessageContractMappings
             Subject = message.Subject,
             TextBody = message.TextBody,
             HtmlBody = message.HtmlBody,
+            IdempotencyKey = message.IdempotencyKey,
             TemplateVariables = message.TemplateVariables is { } templateVariables
                 ? templateVariables.Clone()
                 : null,

@@ -30,7 +30,9 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         {
             // Insert parent message to satisfy FK constraint.
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
 
             var evt = TestData.CreateAuditEvent(
                 messageId: messageId,
@@ -66,7 +68,9 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
 
             var evt = TestData.CreateAuditEvent(
                 messageId: messageId,
@@ -107,7 +111,9 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
 
             var evt = TestData.CreateAuditEvent(
                 messageId: messageId,
@@ -146,7 +152,9 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            await messageWriter.InsertAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            Assert.True(insertResult.WasCreated);
+            Assert.Equal(messageId, insertResult.MessageId);
 
             await auditWriter.InsertAsync(
                 TestData.CreateAuditEvent(messageId, null, MessageStatus.PendingApproval, "MessageCreated"),

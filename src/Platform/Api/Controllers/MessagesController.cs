@@ -8,6 +8,8 @@ namespace Messaging.Platform.Api.Controllers;
 [Route("messages")]
 public sealed class MessagesController : ControllerBase
 {
+    private const string IdempotencyKeyHeaderName = "Idempotency-Key";
+
     private readonly IMessageApplicationService _messageApplicationService;
 
     public MessagesController(IMessageApplicationService messageApplicationService)
@@ -16,17 +18,32 @@ public sealed class MessagesController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<MessageResponse>> Create(
         [FromBody] CreateMessageRequest request,
+        [FromHeader(Name = IdempotencyKeyHeaderName)] string? idempotencyKeyHeader,
         CancellationToken cancellationToken)
     {
-        var created = await _messageApplicationService.CreateAsync(request.ToCommand(), cancellationToken);
-        var response = created.ToResponse();
+        if (Request.Headers.TryGetValue(IdempotencyKeyHeaderName, out var headerValues) && headerValues.Count > 1)
+        {
+            throw new ArgumentException(
+                $"Header '{IdempotencyKeyHeaderName}' must be supplied at most once.",
+                nameof(idempotencyKeyHeader));
+        }
 
-        return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        var idempotencyKey = ResolveIdempotencyKey(idempotencyKeyHeader, request.IdempotencyKey);
+        var createResult = await _messageApplicationService.CreateAsync(request.ToCommand(idempotencyKey), cancellationToken);
+        var response = createResult.Message.ToResponse();
+
+        if (createResult.WasCreated)
+        {
+            return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        }
+
+        return Ok(response);
     }
 
     [HttpPost("{id:guid}/approve")]
@@ -81,5 +98,32 @@ public sealed class MessagesController : ControllerBase
         var response = messages.Select(message => message.ToResponse()).ToArray();
 
         return Ok(response);
+    }
+
+    private static string? ResolveIdempotencyKey(string? headerKey, string? bodyKey)
+    {
+        var normalizedHeader = NormalizeIdempotencyKey(headerKey);
+        var normalizedBody = NormalizeIdempotencyKey(bodyKey);
+
+        if (normalizedHeader is not null &&
+            normalizedBody is not null &&
+            !string.Equals(normalizedHeader, normalizedBody, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Idempotency key mismatch: header 'Idempotency-Key' and body 'idempotencyKey' must match when both are provided.");
+        }
+
+        return normalizedHeader ?? normalizedBody;
+    }
+
+    private static string? NormalizeIdempotencyKey(string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length == 0 ? null : normalized;
     }
 }

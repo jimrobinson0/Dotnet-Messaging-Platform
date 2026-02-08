@@ -41,6 +41,7 @@ internal static class MessageMapper
             textBody: row.TextBody,
             htmlBody: row.HtmlBody,
             templateVariables: ParseJson(row.TemplateVariablesJson),
+            idempotencyKey: row.IdempotencyKey,
             participants: participants);
     }
 
@@ -110,6 +111,7 @@ internal sealed class MessageRow
     public string? TextBody { get; set; }
     public string? HtmlBody { get; set; }
     public string? TemplateVariablesJson { get; set; }
+    public string? IdempotencyKey { get; set; }
 }
 
 internal sealed class MessageParticipantRow

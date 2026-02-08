@@ -27,7 +27,8 @@ public sealed class MessageReader
           m.subject as Subject,
           m.text_body as TextBody,
           m.html_body as HtmlBody,
-          m.template_variables::text as TemplateVariablesJson
+          m.template_variables::text as TemplateVariablesJson,
+          m.idempotency_key as IdempotencyKey
         """;
 
     private static readonly string MessageByIdSql = $"""

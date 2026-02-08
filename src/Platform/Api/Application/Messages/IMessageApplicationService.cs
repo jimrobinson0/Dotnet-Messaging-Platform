@@ -4,7 +4,7 @@ namespace Messaging.Platform.Api.Application.Messages;
 
 public interface IMessageApplicationService
 {
-    Task<Message> CreateAsync(CreateMessageCommand command, CancellationToken cancellationToken = default);
+    Task<CreateMessageResult> CreateAsync(CreateMessageCommand command, CancellationToken cancellationToken = default);
 
     Task<Message> ApproveAsync(Guid messageId, ReviewMessageCommand command, CancellationToken cancellationToken = default);
 

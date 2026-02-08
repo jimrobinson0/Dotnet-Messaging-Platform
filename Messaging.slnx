@@ -37,6 +37,9 @@
   <Folder Name="/test/Email.Review.Tests/">
     <Project Path="test/Email.Review.Tests/Messaging.Email.Review.Tests.csproj" />
   </Folder>
+  <Folder Name="/test/Platform.Api.Tests/">
+    <Project Path="test/Platform.Api.Tests/Messaging.Platform.Api.Tests.csproj" />
+  </Folder>
   <Folder Name="/test/Platform.Core.Tests/">
     <Project Path="test/Platform.Core.Tests/Messaging.Platform.Core.Tests.csproj" />
   </Folder>

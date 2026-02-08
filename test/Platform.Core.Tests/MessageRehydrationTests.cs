@@ -27,9 +27,11 @@ public class MessageRehydrationTests
             textBody: "Hello",
             htmlBody: null,
             templateVariables: null,
+            idempotencyKey: "rehydration-key",
             participants: null);
 
         Assert.Equal(createdAt, message.CreatedAt);
         Assert.Equal(updatedAt, message.UpdatedAt);
+        Assert.Equal("rehydration-key", message.IdempotencyKey);
     }
 }

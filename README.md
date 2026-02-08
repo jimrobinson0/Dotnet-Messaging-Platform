@@ -133,6 +133,25 @@ Explicit rules:
 
 ---
 
+## Idempotent Enqueue Contract
+
+Message creation supports an optional idempotency key to make client retries safe.
+
+* Header: `Idempotency-Key` (preferred)
+* Body field: `idempotencyKey` (fallback)
+* If both are present and differ, API returns `400 Bad Request`
+* Same key replay returns the original message (`200 OK`) without creating new rows
+* New key (or no key) behaves as normal create (`201 Created`)
+* Current scope is global across all messages until tenant/client scoping is introduced
+
+Client guidance:
+
+* Generate high-entropy keys
+* Reuse a key only when retrying the same logical enqueue
+* Do not reuse keys across unrelated messages
+
+---
+
 ## Audit Metadata Responsibility
 
 * Persistence stores audit metadata opaquely

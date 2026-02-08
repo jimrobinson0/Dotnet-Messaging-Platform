@@ -31,7 +31,7 @@ public sealed class MessageRepository
         _auditWriter = auditWriter;
     }
 
-    public async Task<Message> CreateAsync(
+    public async Task<MessageCreateResult> CreateAsync(
         Message message,
         IReadOnlyCollection<MessageParticipant> participants,
         MessageAuditEvent auditEvent,
@@ -41,15 +41,21 @@ public sealed class MessageRepository
         ArgumentNullException.ThrowIfNull(participants);
         ArgumentNullException.ThrowIfNull(auditEvent);
 
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken))
         {
-            await _messageWriter.InsertAsync(message, uow.Transaction, cancellationToken);
-            await _participantWriter.InsertAsync(participants, uow.Transaction, cancellationToken);
-            await _auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
+            insertResult = await _messageWriter.InsertIdempotentAsync(message, uow.Transaction, cancellationToken);
+            if (insertResult.WasCreated)
+            {
+                await _participantWriter.InsertAsync(participants, uow.Transaction, cancellationToken);
+                await _auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
+            }
+
             await uow.CommitAsync(cancellationToken);
         }
 
-        return await GetByIdAsync(message.Id, cancellationToken);
+        var persisted = await GetByIdAsync(insertResult.MessageId, cancellationToken);
+        return new MessageCreateResult(persisted, insertResult.WasCreated);
     }
 
     public async Task<Message> ApplyReviewAsync(

@@ -9,6 +9,8 @@ namespace Messaging.Platform.Core;
 /// </summary>
 public sealed class Message
 {
+    private const int MaxIdempotencyKeyLength = 128;
+
     private readonly List<MessageParticipant> _participants;
     private readonly IReadOnlyList<MessageParticipant> _participantsReadOnly;
 
@@ -35,6 +37,7 @@ public sealed class Message
         string? textBody,
         string? htmlBody,
         JsonElement? templateVariables,
+        string? idempotencyKey,
         IEnumerable<MessageParticipant>? participants = null)
     {
         ArgumentNullException.ThrowIfNull(channel);
@@ -66,6 +69,7 @@ public sealed class Message
         TextBody = textBody;
         HtmlBody = htmlBody;
         TemplateVariables = JsonGuard.EnsureCloned(templateVariables, nameof(templateVariables));
+        IdempotencyKey = NormalizeIdempotencyKey(idempotencyKey);
 
         _participants = participants is null
             ? []
@@ -91,6 +95,7 @@ public sealed class Message
         string? textBody,
         string? htmlBody,
         JsonElement? templateVariables,
+        string? idempotencyKey = null,
         IEnumerable<MessageParticipant>? participants = null)
     {
         return new Message(
@@ -112,6 +117,7 @@ public sealed class Message
             textBody: textBody,
             htmlBody: htmlBody,
             templateVariables: templateVariables,
+            idempotencyKey: idempotencyKey,
             participants: participants);
     }
 
@@ -130,6 +136,7 @@ public sealed class Message
         string? textBody,
         string? htmlBody,
         JsonElement? templateVariables,
+        string? idempotencyKey = null,
         IEnumerable<MessageParticipant>? participants = null)
     {
         return new Message(
@@ -151,6 +158,7 @@ public sealed class Message
             textBody: textBody,
             htmlBody: htmlBody,
             templateVariables: templateVariables,
+            idempotencyKey: idempotencyKey,
             participants: participants);
     }
 
@@ -173,6 +181,7 @@ public sealed class Message
     public string? TextBody { get; }
     public string? HtmlBody { get; }
     public JsonElement? TemplateVariables { get; }
+    public string? IdempotencyKey { get; }
     public IReadOnlyList<MessageParticipant> Participants => _participantsReadOnly;
 
     /// <summary>
@@ -367,6 +376,29 @@ public sealed class Message
             throw new InvalidOperationException(
                 "Direct content requires template_key to be null.");
         }
+    }
+
+    private static string? NormalizeIdempotencyKey(string? idempotencyKey)
+    {
+        if (idempotencyKey is null)
+        {
+            return null;
+        }
+
+        var normalized = idempotencyKey.Trim();
+        if (normalized.Length == 0)
+        {
+            return null;
+        }
+
+        if (normalized.Length > MaxIdempotencyKeyLength)
+        {
+            throw new ArgumentException(
+                $"Idempotency key cannot exceed {MaxIdempotencyKeyLength} characters.",
+                nameof(idempotencyKey));
+        }
+
+        return normalized;
     }
 
     private void EnsureParticipantMessageIds()

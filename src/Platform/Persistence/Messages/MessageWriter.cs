@@ -9,7 +9,7 @@ namespace Messaging.Platform.Persistence.Messages;
 
 public sealed class MessageWriter
 {
-    private const string InsertSql = """
+    private const string InsertIdempotentSql = """
         insert into messages (
           id,
           channel,
@@ -26,7 +26,8 @@ public sealed class MessageWriter
           subject,
           text_body,
           html_body,
-          template_variables
+          template_variables,
+          idempotency_key
         )
         values (
           @Id,
@@ -44,8 +45,13 @@ public sealed class MessageWriter
           @Subject,
           @TextBody,
           @HtmlBody,
-          @TemplateVariables::jsonb
-        );
+          @TemplateVariables::jsonb,
+          @IdempotencyKey
+        )
+        on conflict (idempotency_key) where (idempotency_key is not null)
+        do update /* DO UPDATE ... RETURNING to ensure MVCC-safe idempotent inserts */
+            set idempotency_key = excluded.idempotency_key
+        returning id;
         """;
 
     private const string UpdateSql = """
@@ -61,48 +67,47 @@ public sealed class MessageWriter
         where id = @Id;
         """;
 
-    public async Task InsertAsync(Message message, DbTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task<MessageInsertResult> InsertIdempotentAsync(
+        Message message,
+        DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         var connection = DbGuard.GetConnection(transaction);
-
-        var parameters = new
-        {
-            message.Id,
-            message.Channel,
-            Status = message.Status.ToString(),
-            ContentSource = message.ContentSource.ToString(),
-            message.ClaimedBy,
-            message.ClaimedAt,
-            message.SentAt,
-            message.FailureReason,
-            message.AttemptCount,
-            message.TemplateKey,
-            message.TemplateVersion,
-            message.TemplateResolvedAt,
-            message.Subject,
-            message.TextBody,
-            message.HtmlBody,
-            TemplateVariables = MessageMapper.SerializeJson(message.TemplateVariables)
-        };
+        var parameters = BuildInsertParameters(message);
 
         try
         {
-            await connection.ExecuteAsync(
-                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
+            var insertedId = await connection.QuerySingleOrDefaultAsync<Guid?>(
+                new CommandDefinition(
+                    InsertIdempotentSql,
+                    parameters,
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            if (insertedId == null)
+            {
+                throw new PersistenceException(
+                    $"Idempotent insert returned no message id for message '{message.Id}'.");
+            }
+
+            var messageId = insertedId.Value;
+
+            return new MessageInsertResult(
+                MessageId: messageId,
+                WasCreated: messageId == message.Id);
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
-            throw new ConcurrencyException($"Message '{message.Id}' already exists.", ex);
-        }
-        catch (PostgresException ex)
-        {
-            throw new PersistenceException("Failed to insert message.", ex);
+            throw new ConcurrencyException(
+                "A uniqueness constraint was violated while inserting the message.",
+                ex);
         }
         catch (NpgsqlException ex)
         {
-            throw new PersistenceException("Failed to insert message.", ex);
+            throw new PersistenceException("Failed to insert message idempotently.", ex);
         }
+
     }
 
     public async Task UpdateAsync(Message message, DbTransaction transaction, CancellationToken cancellationToken = default)
@@ -138,6 +143,30 @@ public sealed class MessageWriter
         {
             throw new PersistenceException("Failed to update message.", ex);
         }
+    }
+
+    private static object BuildInsertParameters(Message message)
+    {
+        return new
+        {
+            message.Id,
+            message.Channel,
+            Status = message.Status.ToString(),
+            ContentSource = message.ContentSource.ToString(),
+            message.ClaimedBy,
+            message.ClaimedAt,
+            message.SentAt,
+            message.FailureReason,
+            message.AttemptCount,
+            message.TemplateKey,
+            message.TemplateVersion,
+            message.TemplateResolvedAt,
+            message.Subject,
+            message.TextBody,
+            message.HtmlBody,
+            TemplateVariables = MessageMapper.SerializeJson(message.TemplateVariables),
+            message.IdempotencyKey
+        };
     }
 
 }

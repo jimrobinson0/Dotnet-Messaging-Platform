@@ -7,7 +7,7 @@ namespace Messaging.Platform.Persistence.Tests.Infrastructure;
 
 internal static class TestData
 {
-    public static Message CreatePendingApprovalMessage(Guid messageId)
+    public static Message CreatePendingApprovalMessage(Guid messageId, string? idempotencyKey = null)
     {
         return Message.CreatePendingApproval(
             id: messageId,
@@ -20,10 +20,11 @@ internal static class TestData
             textBody: "Hello",
             htmlBody: null,
             templateVariables: (JsonElement?)null,
+            idempotencyKey: idempotencyKey,
             participants: CreateParticipants(messageId));
     }
 
-    public static Message CreateApprovedMessage(Guid messageId)
+    public static Message CreateApprovedMessage(Guid messageId, string? idempotencyKey = null)
     {
         return Message.CreateApproved(
             id: messageId,
@@ -36,6 +37,7 @@ internal static class TestData
             textBody: "Auto-approved body",
             htmlBody: "<p>Auto-approved</p>",
             templateVariables: (JsonElement?)null,
+            idempotencyKey: idempotencyKey,
             participants: CreateParticipants(messageId));
     }
 

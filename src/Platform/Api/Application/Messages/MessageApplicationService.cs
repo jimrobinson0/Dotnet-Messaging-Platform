@@ -17,7 +17,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
         _messageRepository = messageRepository;
     }
 
-    public async Task<Message> CreateAsync(
+    public async Task<CreateMessageResult> CreateAsync(
         CreateMessageCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -40,6 +40,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 textBody: command.TextBody,
                 htmlBody: command.HtmlBody,
                 templateVariables: command.TemplateVariables,
+                idempotencyKey: command.IdempotencyKey,
                 participants: participants)
             : Message.CreateApproved(
                 id: messageId,
@@ -52,6 +53,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 textBody: command.TextBody,
                 htmlBody: command.HtmlBody,
                 templateVariables: command.TemplateVariables,
+                idempotencyKey: command.IdempotencyKey,
                 participants: participants);
 
         var actorType = ParseActorType(command.ActorType);
@@ -67,11 +69,13 @@ public sealed class MessageApplicationService : IMessageApplicationService
             occurredAt: DateTimeOffset.UtcNow,
             metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
-        return await _messageRepository.CreateAsync(
+        var result = await _messageRepository.CreateAsync(
             message,
             participants,
             audit,
             cancellationToken);
+
+        return new CreateMessageResult(result.Message, result.WasCreated);
     }
 
     public async Task<Message> ApproveAsync(
