@@ -15,25 +15,23 @@ public sealed class MessageWriter
     // - WasCreated is true iff a new row was inserted
     // - SQL is authoritative; C# must not attempt replay lookup or repair
     internal const string InsertIdempotentSql = @"
-with inserted as (
-  insert into messages (
-    channel, status, content_source, template_key, template_version,
-    template_resolved_at, subject, text_body, html_body,
-    template_variables, idempotency_key
-  )
-  values (
-    @Channel, @Status::message_status, @ContentSource::message_content_source,
-    @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
-    @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey
-  )
-  on conflict (idempotency_key) where (idempotency_key is not null)
-  do nothing
-  returning id
-)
-select
-  coalesce((select id from inserted), (select id from messages where idempotency_key = @IdempotencyKey)) as Id,
-  ((select id from inserted) is not null) as WasCreated;
-";
+        insert into messages (
+        channel, status, content_source, template_key, template_version,
+        template_resolved_at, subject, text_body, html_body,
+        template_variables, idempotency_key
+        )
+        values (
+        @Channel, @Status::message_status, @ContentSource::message_content_source,
+        @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
+        @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey
+        )
+        on conflict (idempotency_key) where (idempotency_key is not null)
+        do update
+        set id = messages.id
+        returning
+        id as Id,
+        (xmax = 0) as WasCreated;
+        ";
 
     private const string UpdateSql = """
         update messages

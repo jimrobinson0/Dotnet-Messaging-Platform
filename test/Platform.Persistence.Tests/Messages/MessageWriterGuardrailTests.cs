@@ -22,22 +22,24 @@ public sealed class MessageWriterGuardrailTests
     {
         var sql = NormalizeSql(MessageWriter.InsertIdempotentSql);
 
-        var insertStatements = Regex.Matches(
-            sql,
-            "insert\\s+into\\s+messages",
-            RegexOptions.IgnoreCase);
-        Assert.Single(insertStatements);
+        // Exactly one insert
+        Assert.Single(
+            Regex.Matches(sql, @"insert\s+into\s+messages", RegexOptions.IgnoreCase));
 
-        Assert.True(Regex.IsMatch(sql, @"with\s+inserted\s+as", RegexOptions.IgnoreCase | RegexOptions.Singleline));
-        Assert.True(Regex.IsMatch(sql, @"insert\s+into\s+messages", RegexOptions.IgnoreCase));
-        Assert.True(Regex.IsMatch(sql, @"on\s+conflict\s+\(idempotency_key\)", RegexOptions.IgnoreCase));
-        Assert.True(Regex.IsMatch(sql, @"do\s+nothing", RegexOptions.IgnoreCase));
-        Assert.True(Regex.IsMatch(sql, @"coalesce\s*\(\s*\(select\s+id\s+from\s+inserted\)\s*,", RegexOptions.IgnoreCase | RegexOptions.Singleline));
+        // Concurrency-safe idempotency
+        Assert.Matches(@"on\s+conflict\s+\(idempotency_key\)", sql);
+        Assert.Matches(@"do\s+update", sql);
+        Assert.Matches(@"set\s+id\s*=\s*messages\.id", sql);
 
-        Assert.DoesNotContain("do update", sql, StringComparison.OrdinalIgnoreCase);
+        // Insert vs replay discriminator
+        Assert.Matches(@"\(\s*xmax\s*=\s*0\s*\)", sql);
+
+        // Must return identity
+        Assert.Matches(@"returning\s+.*\bid\b", sql);
+
+        // Guard against unsafe regressions
         Assert.DoesNotContain("union all", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("xmax", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.False(Regex.IsMatch(sql, @"\b(xmin|xmax|ctid|tableoid)\b", RegexOptions.IgnoreCase));
+        Assert.False(Regex.IsMatch(sql, @"\b(xmin|ctid|tableoid)\b", RegexOptions.IgnoreCase));
     }
 
     [Fact]
