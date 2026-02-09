@@ -84,7 +84,8 @@ Rules:
 * Participants and enqueue audit records are inserted **only** when the message row was newly created.
 * Replay is read-only with respect to message content, participants, and lifecycle state.
 
-The `DO UPDATE … RETURNING` pattern is intentionally used instead of `DO NOTHING` to eliminate race conditions under PostgreSQL MVCC during concurrent retries.
+The `DO UPDATE … RETURNING` pattern is intentionally used instead of `DO NOTHING` to eliminate race conditions under
+PostgreSQL MVCC during concurrent retries.
 
 ---
 

@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Messaging.Platform.Persistence.Messages;
 
@@ -9,7 +10,7 @@ public sealed class MessageWriterGuardrailTests
     public void MessageWriter_exposes_only_idempotent_message_insert_method()
     {
         var publicMethods = typeof(MessageWriter)
-            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Select(method => method.Name)
             .ToArray();
 

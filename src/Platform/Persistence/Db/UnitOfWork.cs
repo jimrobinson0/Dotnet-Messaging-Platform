@@ -19,6 +19,22 @@ public sealed class UnitOfWork : IAsyncDisposable
     public DbTransaction Transaction => _transaction;
     public DbConnection Connection => _connection;
 
+    public async ValueTask DisposeAsync()
+    {
+        if (!_completed)
+            try
+            {
+                await _transaction.RollbackAsync();
+            }
+            catch
+            {
+                // Swallow rollback exceptions during dispose.
+            }
+
+        await _transaction.DisposeAsync();
+        await _connection.DisposeAsync();
+    }
+
     public static async Task<UnitOfWork> BeginAsync(
         DbConnectionFactory connectionFactory,
         IsolationLevel isolationLevel = IsolationLevel.ReadCommitted,
@@ -33,10 +49,7 @@ public sealed class UnitOfWork : IAsyncDisposable
 
     public async Task CommitAsync(CancellationToken cancellationToken = default)
     {
-        if (_completed)
-        {
-            return;
-        }
+        if (_completed) return;
 
         await _transaction.CommitAsync(cancellationToken);
         _completed = true;
@@ -44,30 +57,9 @@ public sealed class UnitOfWork : IAsyncDisposable
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     {
-        if (_completed)
-        {
-            return;
-        }
+        if (_completed) return;
 
         await _transaction.RollbackAsync(cancellationToken);
         _completed = true;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (!_completed)
-        {
-            try
-            {
-                await _transaction.RollbackAsync();
-            }
-            catch
-            {
-                // Swallow rollback exceptions during dispose.
-            }
-        }
-
-        await _transaction.DisposeAsync();
-        await _connection.DisposeAsync();
     }
 }

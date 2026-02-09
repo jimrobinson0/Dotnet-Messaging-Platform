@@ -8,12 +8,12 @@ namespace Messaging.Platform.Persistence.Messages;
 
 public sealed class MessageRepository
 {
+    private readonly AuditWriter _auditWriter;
     private readonly DbConnectionFactory _connectionFactory;
     private readonly MessageReader _messageReader;
     private readonly MessageWriter _messageWriter;
     private readonly ParticipantWriter _participantWriter;
     private readonly ReviewWriter _reviewWriter;
-    private readonly AuditWriter _auditWriter;
 
     public MessageRepository(
         DbConnectionFactory connectionFactory,
@@ -80,15 +80,15 @@ public sealed class MessageRepository
             await _reviewWriter.InsertAsync(reviewResult.Review, uow.Transaction, cancellationToken);
 
             var persistedAuditEvent = new MessageAuditEvent(
-                id: auditEvent.Id,
-                messageId: messageId,
-                eventType: auditEvent.EventType,
-                fromStatus: reviewResult.Transition.FromStatus,
-                toStatus: reviewResult.Transition.ToStatus,
-                actorType: auditEvent.ActorType,
-                actorId: auditEvent.ActorId,
-                occurredAt: reviewResult.Transition.OccurredAt,
-                metadataJson: auditEvent.MetadataJson);
+                auditEvent.Id,
+                messageId,
+                auditEvent.EventType,
+                reviewResult.Transition.FromStatus,
+                reviewResult.Transition.ToStatus,
+                auditEvent.ActorType,
+                auditEvent.ActorId,
+                reviewResult.Transition.OccurredAt,
+                auditEvent.MetadataJson);
 
             await _auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
             await uow.CommitAsync(cancellationToken);

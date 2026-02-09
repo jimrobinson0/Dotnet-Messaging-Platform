@@ -10,10 +10,7 @@ using Messaging.Platform.Persistence.Reviews;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+    .AddJsonOptions(options => { options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 
 builder.Services.AddHealthChecks();
 
@@ -40,14 +37,12 @@ app.Run();
 static string ResolveConnectionString(IConfiguration configuration)
 {
     var connectionString = configuration.GetConnectionString("Messaging")
-        ?? configuration["Messaging:ConnectionString"]
-        ?? Environment.GetEnvironmentVariable("MESSAGING_DB_CONNECTION_STRING");
+                           ?? configuration["Messaging:ConnectionString"]
+                           ?? Environment.GetEnvironmentVariable("MESSAGING_DB_CONNECTION_STRING");
 
     if (string.IsNullOrWhiteSpace(connectionString))
-    {
         throw new InvalidOperationException(
             "Messaging database connection string is missing. Configure one of: ConnectionStrings:Messaging, Messaging:ConnectionString, or the MESSAGING_DB_CONNECTION_STRING environment variable.");
-    }
 
     return connectionString;
 }

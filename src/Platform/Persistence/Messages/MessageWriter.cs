@@ -34,17 +34,17 @@ public sealed class MessageWriter
         ";
 
     private const string UpdateSql = """
-        update messages
-        set
-          status = @Status::message_status,
-          updated_at = now(),
-          claimed_by = @ClaimedBy,
-          claimed_at = @ClaimedAt,
-          sent_at = @SentAt,
-          failure_reason = @FailureReason,
-          attempt_count = @AttemptCount
-        where id = @Id;
-        """;
+                                     update messages
+                                     set
+                                       status = @Status::message_status,
+                                       updated_at = now(),
+                                       claimed_by = @ClaimedBy,
+                                       claimed_at = @ClaimedAt,
+                                       sent_at = @SentAt,
+                                       failure_reason = @FailureReason,
+                                       attempt_count = @AttemptCount
+                                     where id = @Id;
+                                     """;
 
     public async Task<MessageInsertResult> InsertIdempotentAsync(
         MessageCreateIntent createIntent,
@@ -61,19 +61,17 @@ public sealed class MessageWriter
                 new CommandDefinition(
                     InsertIdempotentSql,
                     parameters,
-                    transaction: transaction,
+                    transaction,
                     cancellationToken: cancellationToken));
 
 
             if (row.Id == Guid.Empty)
-            {
                 throw new PersistenceException(
                     $"Message insert returned empty id; idempotencyKey={createIntent.IdempotencyKey ?? "<null>"}");
-            }
 
             return new MessageInsertResult(
-                MessageId: row.Id,
-                WasCreated: row.WasCreated);
+                row.Id,
+                row.WasCreated);
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
@@ -85,10 +83,10 @@ public sealed class MessageWriter
         {
             throw new PersistenceException("Failed to insert message idempotently.", ex);
         }
-
     }
 
-    public async Task UpdateAsync(Message message, DbTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(Message message, DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         var connection = DbGuard.GetConnection(transaction);
@@ -107,11 +105,8 @@ public sealed class MessageWriter
         try
         {
             var affected = await connection.ExecuteAsync(
-                new CommandDefinition(UpdateSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
-            if (affected == 0)
-            {
-                throw new NotFoundException($"Message '{message.Id}' was not found.");
-            }
+                new CommandDefinition(UpdateSql, parameters, transaction, cancellationToken: cancellationToken));
+            if (affected == 0) throw new NotFoundException($"Message '{message.Id}' was not found.");
         }
         catch (PostgresException ex)
         {
@@ -146,5 +141,4 @@ public sealed class MessageWriter
         public Guid Id { get; set; }
         public bool WasCreated { get; set; }
     }
-
 }

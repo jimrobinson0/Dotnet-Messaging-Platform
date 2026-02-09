@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace Messaging.Platform.Persistence.Tests.Infrastructure;
 
 [CollectionDefinition("Postgres")]

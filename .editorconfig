@@ -1,0 +1,2 @@
+# Allow contextual parameter prefixes (do NOT enforce trimming)
+dotnet_naming_rule.parameters_should_not_be_prefixed.severity = none

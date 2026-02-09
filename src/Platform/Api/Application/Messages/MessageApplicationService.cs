@@ -30,31 +30,31 @@ public sealed class MessageApplicationService : IMessageApplicationService
 
         var message = command.RequiresApproval
             ? Message.CreatePendingApproval(
-                id: provisionalMessageId,
-                channel: channel,
-                contentSource: contentSource,
-                templateKey: command.TemplateKey,
-                templateVersion: command.TemplateVersion,
-                templateResolvedAt: command.TemplateResolvedAt,
-                subject: command.Subject,
-                textBody: command.TextBody,
-                htmlBody: command.HtmlBody,
-                templateVariables: command.TemplateVariables,
-                idempotencyKey: command.IdempotencyKey,
-                participants: participants)
+                provisionalMessageId,
+                channel,
+                contentSource,
+                command.TemplateKey,
+                command.TemplateVersion,
+                command.TemplateResolvedAt,
+                command.Subject,
+                command.TextBody,
+                command.HtmlBody,
+                command.TemplateVariables,
+                command.IdempotencyKey,
+                participants)
             : Message.CreateApproved(
-                id: provisionalMessageId,
-                channel: channel,
-                contentSource: contentSource,
-                templateKey: command.TemplateKey,
-                templateVersion: command.TemplateVersion,
-                templateResolvedAt: command.TemplateResolvedAt,
-                subject: command.Subject,
-                textBody: command.TextBody,
-                htmlBody: command.HtmlBody,
-                templateVariables: command.TemplateVariables,
-                idempotencyKey: command.IdempotencyKey,
-                participants: participants);
+                provisionalMessageId,
+                channel,
+                contentSource,
+                command.TemplateKey,
+                command.TemplateVersion,
+                command.TemplateResolvedAt,
+                command.Subject,
+                command.TextBody,
+                command.HtmlBody,
+                command.TemplateVariables,
+                command.IdempotencyKey,
+                participants);
 
         var createIntent = MessageCreateIntentMapper.ToCreateIntent(message);
         var participantPrototypes = ParticipantPrototypeMapper.FromCore(message.Participants);
@@ -62,13 +62,13 @@ public sealed class MessageApplicationService : IMessageApplicationService
         var actorType = ParseActorType(command.ActorType);
         var actorId = RequireValue(command.ActorId, nameof(command.ActorId));
         Func<Guid, MessageAuditEvent> auditEventFactory = persistedMessageId => new MessageAuditEvent(
-            id: Guid.NewGuid(),
-            messageId: persistedMessageId,
-            eventType: AuditEventTypes.MessageCreated,
+            Guid.NewGuid(),
+            persistedMessageId,
+            AuditEventTypes.MessageCreated,
             fromStatus: null,
-            toStatus: message.Status,
-            actorType: actorType.ToString(),
-            actorId: actorId,
+            message.Status,
+            actorType.ToString(),
+            actorId,
             occurredAt: DateTimeOffset.UtcNow,
             metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
@@ -127,9 +127,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
         var parsedStatus = ParseOptionalStatus(status);
 
         if (limit <= 0 || limit > MaxListLimit)
-        {
             throw new ArgumentOutOfRangeException(nameof(limit), $"Limit must be between 1 and {MaxListLimit}.");
-        }
 
         return await _messageRepository.ListAsync(parsedStatus, limit, createdAfter, cancellationToken);
     }
@@ -152,15 +150,15 @@ public sealed class MessageApplicationService : IMessageApplicationService
         var decidedAt = command.DecidedAt ?? DateTimeOffset.UtcNow;
 
         var audit = new MessageAuditEvent(
-            id: Guid.NewGuid(),
-            messageId: messageId,
-            eventType: eventType,
+            Guid.NewGuid(),
+            messageId,
+            eventType,
             fromStatus: null,
             toStatus: null,
-            actorType: actorType.ToString(),
-            actorId: actorId,
-            occurredAt: decidedAt,
-            metadataJson: JsonSerializer.SerializeToElement(
+            actorType.ToString(),
+            actorId,
+            decidedAt,
+            JsonSerializer.SerializeToElement(
                 new
                 {
                     decision = decision.ToString(),
@@ -184,24 +182,19 @@ public sealed class MessageApplicationService : IMessageApplicationService
         Guid messageId,
         IReadOnlyList<MessageParticipantInput> participants)
     {
-        if (participants.Count == 0)
-        {
-            return Array.Empty<MessageParticipant>();
-        }
+        if (participants.Count == 0) return Array.Empty<MessageParticipant>();
 
         var createdAt = DateTimeOffset.UtcNow;
         var mappedParticipants = new List<MessageParticipant>(participants.Count);
 
         foreach (var participant in participants)
-        {
             mappedParticipants.Add(new MessageParticipant(
-                id: Guid.NewGuid(),
-                messageId: messageId,
-                role: ParseParticipantRole(participant.Role),
-                address: RequireValue(participant.Address, nameof(participant.Address)),
-                displayName: participant.DisplayName,
-                createdAt: createdAt));
-        }
+                Guid.NewGuid(),
+                messageId,
+                ParseParticipantRole(participant.Role),
+                RequireValue(participant.Address, nameof(participant.Address)),
+                participant.DisplayName,
+                createdAt));
 
         return mappedParticipants;
     }
@@ -215,10 +208,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
     private static MessageContentSource ParseContentSource(string raw)
     {
         var value = RequireValue(raw, nameof(raw));
-        if (Enum.TryParse<MessageContentSource>(value, ignoreCase: true, out var contentSource))
-        {
-            return contentSource;
-        }
+        if (Enum.TryParse<MessageContentSource>(value, true, out var contentSource)) return contentSource;
 
         throw new ArgumentException($"Unknown message content source: '{value}'.", nameof(raw));
     }
@@ -226,10 +216,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
     private static MessageParticipantRole ParseParticipantRole(string raw)
     {
         var value = RequireValue(raw, nameof(raw));
-        if (Enum.TryParse<MessageParticipantRole>(value, ignoreCase: true, out var role))
-        {
-            return role;
-        }
+        if (Enum.TryParse<MessageParticipantRole>(value, true, out var role)) return role;
 
         throw new ArgumentException($"Unknown participant role: '{value}'.", nameof(raw));
     }
@@ -241,15 +228,9 @@ public sealed class MessageApplicationService : IMessageApplicationService
 
     private static MessageStatus? ParseOptionalStatus(string? status)
     {
-        if (string.IsNullOrWhiteSpace(status))
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(status)) return null;
 
-        if (Enum.TryParse<MessageStatus>(status, ignoreCase: true, out var parsed))
-        {
-            return parsed;
-        }
+        if (Enum.TryParse<MessageStatus>(status, true, out var parsed)) return parsed;
 
         throw new ArgumentException(
             $"Unknown status value '{status}'.",
@@ -258,10 +239,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
 
     private static string RequireValue(string? value, string parameterName)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new ArgumentException("Value is required.", parameterName);
-        }
+        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Value is required.", parameterName);
 
         return value;
     }

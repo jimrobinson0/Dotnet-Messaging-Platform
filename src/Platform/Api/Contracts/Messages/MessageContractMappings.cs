@@ -17,20 +17,20 @@ public static class MessageContractMappings
             .ToArray();
 
         return new CreateMessageCommand(
-            Channel: request.Channel,
-            ContentSource: request.ContentSource,
-            RequiresApproval: request.RequiresApproval,
-            TemplateKey: request.TemplateKey,
-            TemplateVersion: request.TemplateVersion,
-            TemplateResolvedAt: request.TemplateResolvedAt,
-            Subject: request.Subject,
-            TextBody: request.TextBody,
-            HtmlBody: request.HtmlBody,
-            TemplateVariables: request.TemplateVariables,
-            IdempotencyKey: idempotencyKey,
-            Participants: participants,
-            ActorType: request.ActorType,
-            ActorId: request.ActorId);
+            request.Channel,
+            request.ContentSource,
+            request.RequiresApproval,
+            request.TemplateKey,
+            request.TemplateVersion,
+            request.TemplateResolvedAt,
+            request.Subject,
+            request.TextBody,
+            request.HtmlBody,
+            request.TemplateVariables,
+            idempotencyKey,
+            participants,
+            request.ActorType,
+            request.ActorId);
     }
 
     public static ReviewMessageCommand ToCommand(this ReviewMessageRequest request)
@@ -38,11 +38,11 @@ public static class MessageContractMappings
         ArgumentNullException.ThrowIfNull(request);
 
         return new ReviewMessageCommand(
-            DecidedBy: request.DecidedBy,
-            ActorType: request.ActorType,
-            ActorId: request.ActorId,
-            DecidedAt: request.DecidedAt,
-            Notes: request.Notes);
+            request.DecidedBy,
+            request.ActorType,
+            request.ActorId,
+            request.DecidedAt,
+            request.Notes);
     }
 
     public static MessageResponse ToResponse(this Message message)

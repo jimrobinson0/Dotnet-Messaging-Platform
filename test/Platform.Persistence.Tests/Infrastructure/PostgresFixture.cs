@@ -5,8 +5,8 @@ using Testcontainers.PostgreSql;
 namespace Messaging.Platform.Persistence.Tests.Infrastructure;
 
 /// <summary>
-/// Shared PostgreSQL container for persistence integration tests.
-/// Applies schema migrations once per test run.
+///     Shared PostgreSQL container for persistence integration tests.
+///     Applies schema migrations once per test run.
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
@@ -48,15 +48,14 @@ public sealed class PostgresFixture : IAsyncLifetime
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
         const string sql = """
-        TRUNCATE TABLE
-          message_audit_events,
-          message_reviews,
-          message_participants,
-          messages
-        RESTART IDENTITY CASCADE;
-        """
-
-        ;
+                           TRUNCATE TABLE
+                             message_audit_events,
+                             message_reviews,
+                             message_participants,
+                             messages
+                           RESTART IDENTITY CASCADE;
+                           """
+            ;
 
         await conn.ExecuteAsync(sql, transaction: tx);
         await tx.CommitAsync(cancellationToken);
@@ -70,10 +69,8 @@ public sealed class PostgresFixture : IAsyncLifetime
             .ToArray();
 
         if (migrationFiles.Length == 0)
-        {
             throw new InvalidOperationException(
                 $"No .sql migration files found in '{migrationsDir}'.");
-        }
 
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync(cancellationToken);
@@ -84,10 +81,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             var sql = await File.ReadAllTextAsync(path, cancellationToken);
 
-            if (string.IsNullOrWhiteSpace(sql))
-            {
-                continue;
-            }
+            if (string.IsNullOrWhiteSpace(sql)) continue;
 
             await conn.ExecuteAsync(sql, cancellationToken);
         }

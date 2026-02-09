@@ -1,10 +1,7 @@
-using System.Threading.Tasks;
-using Xunit;
-
 namespace Messaging.Platform.Persistence.Tests.Infrastructure;
 
 /// <summary>
-/// Base class for tests that require a clean database.
+///     Base class for tests that require a clean database.
 /// </summary>
 [Collection("Postgres")]
 public abstract class PostgresTestBase
@@ -16,5 +13,8 @@ public abstract class PostgresTestBase
 
     protected PostgresFixture Fixture { get; }
 
-    protected Task ResetDbAsync() => Fixture.ResetDatabaseAsync();
+    protected Task ResetDbAsync()
+    {
+        return Fixture.ResetDatabaseAsync();
+    }
 }

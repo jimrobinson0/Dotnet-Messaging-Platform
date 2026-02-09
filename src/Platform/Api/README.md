@@ -9,15 +9,17 @@ Its job is to translate HTTP requests into **domain intent**, delegate all decis
 ## Responsibilities
 
 ### ✅ This project **does**
+
 - Define HTTP endpoints (controllers/minimal APIs)
 - Validate request shape (required fields, basic formatting)
 - Map DTOs ↔ Core types (no implicit mapping frameworks)
 - Orchestrate workflows by calling:
-  - **Platform.Core** for domain behavior and transitions
-  - **Platform.Persistence** for storage and transactional consistency
+    - **Platform.Core** for domain behavior and transitions
+    - **Platform.Persistence** for storage and transactional consistency
 - Translate exceptions into consistent HTTP responses (ProblemDetails)
 
 ### ❌ This project **does not**
+
 - Contain SQL or data-access logic (**no Dapper here**)
 - Implement lifecycle rules (no “if status == … then …” business checks)
 - Create/own transactions directly (no ad-hoc `BeginTransaction` orchestration unless via Persistence abstractions)
@@ -41,7 +43,8 @@ API should map errors to HTTP responses consistently:
   When a requested resource does not exist (e.g., `NotFoundException` from Persistence).
 
 - **409 Conflict**  
-  When a domain transition is invalid or concurrency rules prevent the operation (e.g., invalid status transition, duplicate review decision).
+  When a domain transition is invalid or concurrency rules prevent the operation (e.g., invalid status transition,
+  duplicate review decision).
 
 - **400 Bad Request**  
   When request DTO shape is invalid (missing required fields, invalid formats).
@@ -58,7 +61,8 @@ Use `ProblemDetails` for structured error responses.
 The database is the source of truth for persisted timestamps:
 
 - `created_at` and `updated_at` are assigned by PostgreSQL defaults/expressions (e.g., `now()`).
-- In-memory aggregates may contain **logical event times** (e.g., transition occurredAt), but these are **not guaranteed** to match persisted `updated_at` after a write.
+- In-memory aggregates may contain **logical event times** (e.g., transition occurredAt), but these are **not guaranteed
+  ** to match persisted `updated_at` after a write.
 - Consumers requiring authoritative timestamps must rehydrate.
 
 ---
@@ -66,6 +70,7 @@ The database is the source of truth for persisted timestamps:
 ## Workflows (High-level)
 
 ### List Messages (Observability)
+
 - `GET /messages?status={optional}`
 - If `status` is omitted, API returns messages across all statuses.
 - If `status` is provided, API filters to that status.
@@ -73,6 +78,7 @@ The database is the source of truth for persisted timestamps:
 - Actionability is separate from visibility: terminal and non-actionable messages are still listable.
 
 ### Create Message
+
 - API validates request
 - API resolves idempotency key (`Idempotency-Key` header preferred, `idempotencyKey` body fallback)
 - API rejects mismatched header/body keys with `400 Bad Request`
@@ -82,10 +88,11 @@ The database is the source of truth for persisted timestamps:
 - Replay does not mutate message content/status/participants and does not emit duplicate enqueue audit
 
 ### Approve / Reject
+
 - API calls Persistence to load message `FOR UPDATE` within a transaction
 - API calls Core to produce:
-  - message transition
-  - review decision record
+    - message transition
+    - review decision record
 - API persists message update + review insert + audit insert atomically
 - Approve/reject availability is state-dependent and enforced by Core transition rules.
 

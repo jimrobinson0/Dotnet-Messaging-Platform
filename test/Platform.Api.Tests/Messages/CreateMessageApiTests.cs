@@ -20,8 +20,9 @@ public sealed class CreateMessageApiTests
         CreateMessageCommand? capturedCommand = null;
         var createdMessage = BuildMessage("header-key");
 
-        service.CreateAsync(Arg.Do<CreateMessageCommand>(command => capturedCommand = command), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, WasCreated: true)));
+        service.CreateAsync(Arg.Do<CreateMessageCommand>(command => capturedCommand = command),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, true)));
 
         await using var factory = new MessagingApiFactory(service);
         using var client = factory.CreateClient();
@@ -56,7 +57,7 @@ public sealed class CreateMessageApiTests
         var replayedMessage = BuildMessage("replay-key");
 
         service.CreateAsync(Arg.Any<CreateMessageCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CreateMessageResult(replayedMessage, WasCreated: false)));
+            .Returns(Task.FromResult(new CreateMessageResult(replayedMessage, false)));
 
         await using var factory = new MessagingApiFactory(service);
         using var client = factory.CreateClient();
@@ -114,24 +115,25 @@ public sealed class CreateMessageApiTests
         Assert.Contains("Idempotency key mismatch", payload, StringComparison.Ordinal);
         Assert.DoesNotContain(
             service.ReceivedCalls(),
-            call => string.Equals(call.GetMethodInfo().Name, nameof(IMessageApplicationService.CreateAsync), StringComparison.Ordinal));
+            call => string.Equals(call.GetMethodInfo().Name, nameof(IMessageApplicationService.CreateAsync),
+                StringComparison.Ordinal));
     }
 
     private static Message BuildMessage(string idempotencyKey)
     {
         return Message.CreateApproved(
-            id: Guid.NewGuid(),
-            channel: "email",
-            contentSource: MessageContentSource.Direct,
-            templateKey: null,
-            templateVersion: null,
-            templateResolvedAt: null,
-            subject: "Subject",
-            textBody: "Body",
-            htmlBody: null,
-            templateVariables: null,
-            idempotencyKey: idempotencyKey,
-            participants: Array.Empty<MessageParticipant>());
+            Guid.NewGuid(),
+            "email",
+            MessageContentSource.Direct,
+            null,
+            null,
+            null,
+            "Subject",
+            "Body",
+            null,
+            null,
+            idempotencyKey,
+            Array.Empty<MessageParticipant>());
     }
 
     private sealed class MessagingApiFactory : WebApplicationFactory<Program>

@@ -23,26 +23,26 @@ internal static class MessageMapper
                 .ToArray();
 
         return new Message(
-            id: row.Id,
-            channel: row.Channel,
-            status: status,
-            contentSource: contentSource,
-            createdAt: row.CreatedAt,
-            updatedAt: row.UpdatedAt,
-            claimedBy: row.ClaimedBy,
-            claimedAt: row.ClaimedAt,
-            sentAt: row.SentAt,
-            failureReason: row.FailureReason,
-            attemptCount: row.AttemptCount,
-            templateKey: row.TemplateKey,
-            templateVersion: row.TemplateVersion,
-            templateResolvedAt: row.TemplateResolvedAt,
-            subject: row.Subject,
-            textBody: row.TextBody,
-            htmlBody: row.HtmlBody,
-            templateVariables: ParseJson(row.TemplateVariablesJson),
-            idempotencyKey: row.IdempotencyKey,
-            participants: participants);
+            row.Id,
+            row.Channel,
+            status,
+            contentSource,
+            row.CreatedAt,
+            row.UpdatedAt,
+            row.ClaimedBy,
+            row.ClaimedAt,
+            row.SentAt,
+            row.FailureReason,
+            row.AttemptCount,
+            row.TemplateKey,
+            row.TemplateVersion,
+            row.TemplateResolvedAt,
+            row.Subject,
+            row.TextBody,
+            row.HtmlBody,
+            ParseJson(row.TemplateVariablesJson),
+            row.IdempotencyKey,
+            participants);
     }
 
     public static string? SerializeJson(JsonElement? json)
@@ -65,10 +65,7 @@ internal static class MessageMapper
 
     private static JsonElement? ParseJson(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(json)) return null;
 
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
@@ -78,14 +75,10 @@ internal static class MessageMapper
         where TEnum : struct, Enum
     {
         if (string.IsNullOrWhiteSpace(raw))
-        {
             throw new PersistenceException($"Column '{columnName}' contains an empty value.");
-        }
 
-        if (!Enum.TryParse<TEnum>(raw, ignoreCase: true, out var value))
-        {
+        if (!Enum.TryParse<TEnum>(raw, true, out var value))
             throw new PersistenceException($"Column '{columnName}' contains unknown value '{raw}'.");
-        }
 
         return value;
     }

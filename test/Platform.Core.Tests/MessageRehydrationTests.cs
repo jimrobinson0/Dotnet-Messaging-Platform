@@ -9,26 +9,26 @@ public class MessageRehydrationTests
         var updatedAt = DateTimeOffset.UtcNow;
 
         var message = new Message(
-            id: Guid.NewGuid(),
-            channel: "email",
-            status: MessageStatus.Approved,
-            contentSource: MessageContentSource.Direct,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            claimedBy: null,
-            claimedAt: null,
-            sentAt: null,
-            failureReason: null,
-            attemptCount: 0,
-            templateKey: null,
-            templateVersion: null,
-            templateResolvedAt: null,
-            subject: "Test",
-            textBody: "Hello",
-            htmlBody: null,
-            templateVariables: null,
-            idempotencyKey: "rehydration-key",
-            participants: null);
+            Guid.NewGuid(),
+            "email",
+            MessageStatus.Approved,
+            MessageContentSource.Direct,
+            createdAt,
+            updatedAt,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null,
+            null,
+            null,
+            "Test",
+            "Hello",
+            null,
+            null,
+            "rehydration-key",
+            null);
 
         Assert.Equal(createdAt, message.CreatedAt);
         Assert.Equal(updatedAt, message.UpdatedAt);

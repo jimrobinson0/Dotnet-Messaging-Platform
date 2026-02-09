@@ -11,11 +11,11 @@ internal static class ParticipantPrototypeMapper
 
         return participants
             .Select(participant => new MessageParticipantPrototype(
-                Id: participant.Id,
-                Role: participant.Role,
-                Address: participant.Address,
-                DisplayName: participant.DisplayName,
-                CreatedAt: participant.CreatedAt))
+                participant.Id,
+                participant.Role,
+                participant.Address,
+                participant.DisplayName,
+                participant.CreatedAt))
             .ToArray();
     }
 
@@ -24,20 +24,18 @@ internal static class ParticipantPrototypeMapper
         IEnumerable<MessageParticipantPrototype> participants)
     {
         if (messageId == Guid.Empty)
-        {
             throw new ArgumentException("messageId must be a non-empty GUID.", nameof(messageId));
-        }
 
         ArgumentNullException.ThrowIfNull(participants);
 
         return participants
             .Select(participant => new MessageParticipant(
-                id: participant.Id,
-                messageId: messageId,
-                role: participant.Role,
-                address: participant.Address,
-                displayName: participant.DisplayName,
-                createdAt: participant.CreatedAt))
+                participant.Id,
+                messageId,
+                participant.Role,
+                participant.Address,
+                participant.DisplayName,
+                participant.CreatedAt))
             .ToArray();
     }
 }

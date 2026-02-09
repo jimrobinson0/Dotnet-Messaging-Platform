@@ -10,31 +10,32 @@ namespace Messaging.Platform.Persistence.Audit;
 public sealed class AuditWriter
 {
     private const string InsertSql = """
-        insert into message_audit_events (
-          id,
-          message_id,
-          event_type,
-          from_status,
-          to_status,
-          actor_type,
-          actor_id,
-          occurred_at,
-          metadata_json
-        )
-        values (
-          @Id,
-          @MessageId,
-          @EventType,
-          @FromStatus::message_status,
-          @ToStatus::message_status,
-          @ActorType,
-          @ActorId,
-          @OccurredAt,
-          @MetadataJson::jsonb
-        );
-        """;
+                                     insert into message_audit_events (
+                                       id,
+                                       message_id,
+                                       event_type,
+                                       from_status,
+                                       to_status,
+                                       actor_type,
+                                       actor_id,
+                                       occurred_at,
+                                       metadata_json
+                                     )
+                                     values (
+                                       @Id,
+                                       @MessageId,
+                                       @EventType,
+                                       @FromStatus::message_status,
+                                       @ToStatus::message_status,
+                                       @ActorType,
+                                       @ActorId,
+                                       @OccurredAt,
+                                       @MetadataJson::jsonb
+                                     );
+                                     """;
 
-    public async Task InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
         var connection = DbGuard.GetConnection(transaction);
@@ -55,7 +56,7 @@ public sealed class AuditWriter
         try
         {
             await connection.ExecuteAsync(
-                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
+                new CommandDefinition(InsertSql, parameters, transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex)
         {
@@ -66,5 +67,4 @@ public sealed class AuditWriter
             throw new PersistenceException("Failed to insert audit event.", ex);
         }
     }
-
 }

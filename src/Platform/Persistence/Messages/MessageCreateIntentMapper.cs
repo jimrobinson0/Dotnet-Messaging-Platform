@@ -9,16 +9,16 @@ internal static class MessageCreateIntentMapper
         ArgumentNullException.ThrowIfNull(message);
 
         return new MessageCreateIntent(
-            Channel: message.Channel,
-            Status: message.Status,
-            ContentSource: message.ContentSource,
-            TemplateKey: message.TemplateKey,
-            TemplateVersion: message.TemplateVersion,
-            TemplateResolvedAt: message.TemplateResolvedAt,
-            Subject: message.Subject,
-            TextBody: message.TextBody,
-            HtmlBody: message.HtmlBody,
-            TemplateVariables: message.TemplateVariables,
-            IdempotencyKey: message.IdempotencyKey);
+            message.Channel,
+            message.Status,
+            message.ContentSource,
+            message.TemplateKey,
+            message.TemplateVersion,
+            message.TemplateResolvedAt,
+            message.Subject,
+            message.TextBody,
+            message.HtmlBody,
+            message.TemplateVariables,
+            message.IdempotencyKey);
     }
 }

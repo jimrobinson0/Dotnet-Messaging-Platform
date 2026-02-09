@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using Messaging.Platform.Core;
 
@@ -10,35 +8,35 @@ internal static class TestData
     public static Message CreatePendingApprovalMessage(Guid messageId, string? idempotencyKey = null)
     {
         return Message.CreatePendingApproval(
-            id: messageId,
-            channel: "email",
-            contentSource: MessageContentSource.Direct,
-            templateKey: null,
-            templateVersion: null,
-            templateResolvedAt: null,
-            subject: "Subject",
-            textBody: "Hello",
-            htmlBody: null,
-            templateVariables: (JsonElement?)null,
-            idempotencyKey: idempotencyKey,
-            participants: CreateParticipants(messageId));
+            messageId,
+            "email",
+            MessageContentSource.Direct,
+            null,
+            null,
+            null,
+            "Subject",
+            "Hello",
+            null,
+            null,
+            idempotencyKey,
+            CreateParticipants(messageId));
     }
 
     public static Message CreateApprovedMessage(Guid messageId, string? idempotencyKey = null)
     {
         return Message.CreateApproved(
-            id: messageId,
-            channel: "email",
-            contentSource: MessageContentSource.Direct,
-            templateKey: null,
-            templateVersion: null,
-            templateResolvedAt: null,
-            subject: "Auto-approved subject",
-            textBody: "Auto-approved body",
-            htmlBody: "<p>Auto-approved</p>",
-            templateVariables: (JsonElement?)null,
-            idempotencyKey: idempotencyKey,
-            participants: CreateParticipants(messageId));
+            messageId,
+            "email",
+            MessageContentSource.Direct,
+            null,
+            null,
+            null,
+            "Auto-approved subject",
+            "Auto-approved body",
+            "<p>Auto-approved</p>",
+            null,
+            idempotencyKey,
+            CreateParticipants(messageId));
     }
 
     public static Message CreateTemplateMessage(Guid messageId)
@@ -46,32 +44,32 @@ internal static class TestData
         var variablesJson = JsonDocument.Parse("""{"name":"Test","orderId":42}""").RootElement;
 
         return Message.CreatePendingApproval(
-            id: messageId,
-            channel: "email",
-            contentSource: MessageContentSource.Template,
-            templateKey: "welcome-email",
-            templateVersion: "2.1",
-            templateResolvedAt: DateTimeOffset.UtcNow,
-            subject: "Welcome",
-            textBody: "Hello {{name}}",
-            htmlBody: "<p>Hello {{name}}</p>",
-            templateVariables: variablesJson,
+            messageId,
+            "email",
+            MessageContentSource.Template,
+            "welcome-email",
+            "2.1",
+            DateTimeOffset.UtcNow,
+            "Welcome",
+            "Hello {{name}}",
+            "<p>Hello {{name}}</p>",
+            variablesJson,
             participants: CreateParticipants(messageId));
     }
 
     public static Message CreateMessageWithoutParticipants(Guid messageId)
     {
         return Message.CreatePendingApproval(
-            id: messageId,
-            channel: "email",
-            contentSource: MessageContentSource.Direct,
-            templateKey: null,
-            templateVersion: null,
-            templateResolvedAt: null,
-            subject: null,
-            textBody: "Short message",
-            htmlBody: null,
-            templateVariables: (JsonElement?)null,
+            messageId,
+            "email",
+            MessageContentSource.Direct,
+            null,
+            null,
+            null,
+            null,
+            "Short message",
+            null,
+            null,
             participants: null);
     }
 
@@ -79,21 +77,21 @@ internal static class TestData
     {
         return new List<MessageParticipant>
         {
-            new MessageParticipant(
-                id: Guid.NewGuid(),
-                messageId: messageId,
-                role: MessageParticipantRole.Sender,
-                address: "sender@example.com",
-                displayName: "Sender",
-                createdAt: DateTimeOffset.UtcNow),
+            new(
+                Guid.NewGuid(),
+                messageId,
+                MessageParticipantRole.Sender,
+                "sender@example.com",
+                "Sender",
+                DateTimeOffset.UtcNow),
 
-            new MessageParticipant(
-                id: Guid.NewGuid(),
-                messageId: messageId,
-                role: MessageParticipantRole.To,
-                address: "to@example.com",
-                displayName: "To",
-                createdAt: DateTimeOffset.UtcNow)
+            new(
+                Guid.NewGuid(),
+                messageId,
+                MessageParticipantRole.To,
+                "to@example.com",
+                "To",
+                DateTimeOffset.UtcNow)
         };
     }
 
@@ -105,37 +103,36 @@ internal static class TestData
         JsonElement? metadata = null)
     {
         return new MessageAuditEvent(
-            id: Guid.NewGuid(),
-            messageId: messageId,
-            eventType: eventType,
-            fromStatus: fromStatus,
-            toStatus: toStatus,
-            actorType: "System",
-            actorId: "test",
-            occurredAt: DateTimeOffset.UtcNow,
-            metadataJson: metadata);
+            Guid.NewGuid(),
+            messageId,
+            eventType,
+            fromStatus,
+            toStatus,
+            "System",
+            "test",
+            DateTimeOffset.UtcNow,
+            metadata);
     }
 
     public static MessageReview CreateApprovedReview(Guid messageId)
     {
         return new MessageReview(
-            id: Guid.NewGuid(),
-            messageId: messageId,
-            decision: ReviewDecision.Approved,
-            decidedBy: "reviewer",
-            decidedAt: DateTimeOffset.UtcNow,
-            notes: "ok");
+            Guid.NewGuid(),
+            messageId,
+            ReviewDecision.Approved,
+            "reviewer",
+            DateTimeOffset.UtcNow,
+            "ok");
     }
 
     public static MessageReview CreateRejectedReview(Guid messageId)
     {
         return new MessageReview(
-            id: Guid.NewGuid(),
-            messageId: messageId,
-            decision: ReviewDecision.Rejected,
-            decidedBy: "reviewer",
-            decidedAt: DateTimeOffset.UtcNow,
-            notes: "no");
+            Guid.NewGuid(),
+            messageId,
+            ReviewDecision.Rejected,
+            "reviewer",
+            DateTimeOffset.UtcNow,
+            "no");
     }
-
 }

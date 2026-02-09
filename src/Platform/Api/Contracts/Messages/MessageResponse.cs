@@ -23,7 +23,9 @@ public sealed class MessageResponse
     public string? HtmlBody { get; init; }
     public string? IdempotencyKey { get; init; }
     public JsonElement? TemplateVariables { get; init; }
-    public IReadOnlyList<MessageParticipantResponse> Participants { get; init; } = Array.Empty<MessageParticipantResponse>();
+
+    public IReadOnlyList<MessageParticipantResponse> Participants { get; init; } =
+        Array.Empty<MessageParticipantResponse>();
 }
 
 public sealed class MessageParticipantResponse

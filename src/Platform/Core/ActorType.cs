@@ -2,13 +2,16 @@ namespace Messaging.Platform.Core;
 
 public sealed record ActorType
 {
-    public string Value { get; }
-
-    private ActorType(string value) => Value = value;
-
     public static readonly ActorType Human = new("Human");
     public static readonly ActorType Worker = new("Worker");
     public static readonly ActorType System = new("System");
+
+    private ActorType(string value)
+    {
+        Value = value;
+    }
+
+    public string Value { get; }
 
     public bool IsHuman => this == Human;
 
@@ -23,5 +26,8 @@ public sealed record ActorType
         throw new ArgumentException($"Unknown actor type: '{raw}'.", nameof(raw));
     }
 
-    public override string ToString() => Value;
+    public override string ToString()
+    {
+        return Value;
+    }
 }

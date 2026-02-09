@@ -1,19 +1,18 @@
-using System;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Dapper;
 using Messaging.Platform.Core;
 using Messaging.Platform.Persistence.Audit;
 using Messaging.Platform.Persistence.Db;
 using Messaging.Platform.Persistence.Messages;
 using Messaging.Platform.Persistence.Tests.Infrastructure;
-using Xunit;
 
 namespace Messaging.Platform.Persistence.Tests.Audit;
 
 public sealed class MessageAuditPersistenceTests : PostgresTestBase
 {
-    public MessageAuditPersistenceTests(PostgresFixture fixture) : base(fixture) { }
+    public MessageAuditPersistenceTests(PostgresFixture fixture) : base(fixture)
+    {
+    }
 
     [Fact]
     public async Task Insert_audit_event_persists_row()
@@ -31,16 +30,18 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         {
             // Insert parent message to satisfy FK constraint.
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
 
             var evt = TestData.CreateAuditEvent(
-                messageId: persistedMessageId,
-                fromStatus: null,
-                toStatus: MessageStatus.PendingApproval,
-                eventType: "MessageCreated");
+                persistedMessageId,
+                null,
+                MessageStatus.PendingApproval,
+                "MessageCreated");
 
             await auditWriter.InsertAsync(evt, uow.Transaction);
 
@@ -71,16 +72,18 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
 
             var evt = TestData.CreateAuditEvent(
-                messageId: persistedMessageId,
-                fromStatus: MessageStatus.PendingApproval,
-                toStatus: MessageStatus.Approved,
-                eventType: "StatusTransition");
+                persistedMessageId,
+                MessageStatus.PendingApproval,
+                MessageStatus.Approved,
+                "StatusTransition");
 
             await auditWriter.InsertAsync(evt, uow.Transaction);
 
@@ -116,17 +119,19 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
 
             var evt = TestData.CreateAuditEvent(
-                messageId: persistedMessageId,
-                fromStatus: null,
-                toStatus: null,
-                eventType: "FailureRecorded",
-                metadata: metadata);
+                persistedMessageId,
+                null,
+                null,
+                "FailureRecorded",
+                metadata);
 
             await auditWriter.InsertAsync(evt, uow.Transaction);
 
@@ -159,7 +164,9 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
@@ -169,11 +176,13 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
                 uow.Transaction);
 
             await auditWriter.InsertAsync(
-                TestData.CreateAuditEvent(persistedMessageId, MessageStatus.PendingApproval, MessageStatus.Approved, "StatusTransition"),
+                TestData.CreateAuditEvent(persistedMessageId, MessageStatus.PendingApproval, MessageStatus.Approved,
+                    "StatusTransition"),
                 uow.Transaction);
 
             await auditWriter.InsertAsync(
-                TestData.CreateAuditEvent(persistedMessageId, MessageStatus.Approved, MessageStatus.Sending, "StatusTransition"),
+                TestData.CreateAuditEvent(persistedMessageId, MessageStatus.Approved, MessageStatus.Sending,
+                    "StatusTransition"),
                 uow.Transaction);
 
             var count = await uow.Connection.QuerySingleAsync<int>(

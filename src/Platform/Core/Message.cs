@@ -4,19 +4,18 @@ using Messaging.Platform.Core.Exceptions;
 namespace Messaging.Platform.Core;
 
 /// <summary>
-/// Represents a single immutable sendable message and its lifecycle state.
-/// This aggregate is the authoritative in-memory representation of a persisted message row.
+///     Represents a single immutable sendable message and its lifecycle state.
+///     This aggregate is the authoritative in-memory representation of a persisted message row.
 /// </summary>
 public sealed class Message
 {
     private const int MaxIdempotencyKeyLength = 128;
 
     private readonly List<MessageParticipant> _participants;
-    private readonly IReadOnlyList<MessageParticipant> _participantsReadOnly;
 
     /// <summary>
-    /// Rehydration constructor.
-    /// Intended for loading an existing message from persistence.
+    ///     Rehydration constructor.
+    ///     Intended for loading an existing message from persistence.
     /// </summary>
     internal Message(
         Guid id,
@@ -45,11 +44,9 @@ public sealed class Message
         EnsureTemplateIdentityConstraint(contentSource, templateKey);
 
         if (attemptCount < 0)
-        {
             throw new ArgumentOutOfRangeException(
                 nameof(attemptCount),
                 "Attempt count cannot be negative.");
-        }
 
         Id = id;
         Channel = channel;
@@ -75,91 +72,9 @@ public sealed class Message
             ? []
             : [.. participants];
 
-        _participantsReadOnly = _participants.AsReadOnly();
+        Participants = _participants.AsReadOnly();
 
         EnsureParticipantMessageIds();
-    }
-
-    /// <summary>
-    /// Creates a message that requires human approval before delivery.
-    /// CreatedAt / UpdatedAt are populated by persistence.
-    /// </summary>
-    public static Message CreatePendingApproval(
-        Guid id,
-        string channel,
-        MessageContentSource contentSource,
-        string? templateKey,
-        string? templateVersion,
-        DateTimeOffset? templateResolvedAt,
-        string? subject,
-        string? textBody,
-        string? htmlBody,
-        JsonElement? templateVariables,
-        string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null)
-    {
-        return new Message(
-            id: id,
-            channel: channel,
-            status: MessageStatus.PendingApproval,
-            contentSource: contentSource,
-            createdAt: DateTimeOffset.MinValue,
-            updatedAt: DateTimeOffset.MinValue,
-            claimedBy: null,
-            claimedAt: null,
-            sentAt: null,
-            failureReason: null,
-            attemptCount: 0,
-            templateKey: templateKey,
-            templateVersion: templateVersion,
-            templateResolvedAt: templateResolvedAt,
-            subject: subject,
-            textBody: textBody,
-            htmlBody: htmlBody,
-            templateVariables: templateVariables,
-            idempotencyKey: idempotencyKey,
-            participants: participants);
-    }
-
-    /// <summary>
-    /// Creates an auto-approved message that is immediately eligible for delivery.
-    /// CreatedAt / UpdatedAt are populated by persistence.
-    /// </summary>
-    public static Message CreateApproved(
-        Guid id,
-        string channel,
-        MessageContentSource contentSource,
-        string? templateKey,
-        string? templateVersion,
-        DateTimeOffset? templateResolvedAt,
-        string? subject,
-        string? textBody,
-        string? htmlBody,
-        JsonElement? templateVariables,
-        string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null)
-    {
-        return new Message(
-            id: id,
-            channel: channel,
-            status: MessageStatus.Approved,
-            contentSource: contentSource,
-            createdAt: DateTimeOffset.MinValue,
-            updatedAt: DateTimeOffset.MinValue,
-            claimedBy: null,
-            claimedAt: null,
-            sentAt: null,
-            failureReason: null,
-            attemptCount: 0,
-            templateKey: templateKey,
-            templateVersion: templateVersion,
-            templateResolvedAt: templateResolvedAt,
-            subject: subject,
-            textBody: textBody,
-            htmlBody: htmlBody,
-            templateVariables: templateVariables,
-            idempotencyKey: idempotencyKey,
-            participants: participants);
     }
 
 
@@ -182,36 +97,114 @@ public sealed class Message
     public string? HtmlBody { get; }
     public JsonElement? TemplateVariables { get; }
     public string? IdempotencyKey { get; }
-    public IReadOnlyList<MessageParticipant> Participants => _participantsReadOnly;
+    public IReadOnlyList<MessageParticipant> Participants { get; }
 
     /// <summary>
-    /// Ensures the message is eligible to be claimed by a worker for delivery.
+    ///     Creates a message that requires human approval before delivery.
+    ///     CreatedAt / UpdatedAt are populated by persistence.
+    /// </summary>
+    public static Message CreatePendingApproval(
+        Guid id,
+        string channel,
+        MessageContentSource contentSource,
+        string? templateKey,
+        string? templateVersion,
+        DateTimeOffset? templateResolvedAt,
+        string? subject,
+        string? textBody,
+        string? htmlBody,
+        JsonElement? templateVariables,
+        string? idempotencyKey = null,
+        IEnumerable<MessageParticipant>? participants = null)
+    {
+        return new Message(
+            id,
+            channel,
+            MessageStatus.PendingApproval,
+            contentSource,
+            DateTimeOffset.MinValue,
+            DateTimeOffset.MinValue,
+            null,
+            null,
+            null,
+            null,
+            0,
+            templateKey,
+            templateVersion,
+            templateResolvedAt,
+            subject,
+            textBody,
+            htmlBody,
+            templateVariables,
+            idempotencyKey,
+            participants);
+    }
+
+    /// <summary>
+    ///     Creates an auto-approved message that is immediately eligible for delivery.
+    ///     CreatedAt / UpdatedAt are populated by persistence.
+    /// </summary>
+    public static Message CreateApproved(
+        Guid id,
+        string channel,
+        MessageContentSource contentSource,
+        string? templateKey,
+        string? templateVersion,
+        DateTimeOffset? templateResolvedAt,
+        string? subject,
+        string? textBody,
+        string? htmlBody,
+        JsonElement? templateVariables,
+        string? idempotencyKey = null,
+        IEnumerable<MessageParticipant>? participants = null)
+    {
+        return new Message(
+            id,
+            channel,
+            MessageStatus.Approved,
+            contentSource,
+            DateTimeOffset.MinValue,
+            DateTimeOffset.MinValue,
+            null,
+            null,
+            null,
+            null,
+            0,
+            templateKey,
+            templateVersion,
+            templateResolvedAt,
+            subject,
+            textBody,
+            htmlBody,
+            templateVariables,
+            idempotencyKey,
+            participants);
+    }
+
+    /// <summary>
+    ///     Ensures the message is eligible to be claimed by a worker for delivery.
     /// </summary>
     public void EnsureSendable()
     {
         if (!MessageLifecycle.IsSendable(Status))
-        {
             throw new InvalidMessageStatusTransitionException(
                 Status,
                 MessageStatus.Sending);
-        }
     }
 
     /// <summary>
-    /// Ensures the message is in a terminal state.
+    ///     Ensures the message is in a terminal state.
     /// </summary>
     public void EnsureIsTerminal()
     {
         if (!MessageLifecycle.IsTerminal(Status))
-        {
             throw new InvalidOperationException(
                 $"Message '{Id}' is not in a terminal status. Current status: '{Status}'.");
-        }
     }
 
     /// <summary>
-    /// Approves a pending message via a human review action.
-    /// Produces both a lifecycle transition and a review record.
+    ///     Approves a pending message via a human review action.
+    ///     Produces both a lifecycle transition and a review record.
     /// </summary>
     public ReviewDecisionResult Approve(
         Guid reviewId,
@@ -238,8 +231,8 @@ public sealed class Message
     }
 
     /// <summary>
-    /// Rejects a pending message via a human review action.
-    /// Produces both a lifecycle transition and a review record.
+    ///     Rejects a pending message via a human review action.
+    ///     Produces both a lifecycle transition and a review record.
     /// </summary>
     public ReviewDecisionResult Reject(
         Guid reviewId,
@@ -266,7 +259,7 @@ public sealed class Message
     }
 
     /// <summary>
-    /// Claims the message for delivery by a worker.
+    ///     Claims the message for delivery by a worker.
     /// </summary>
     public MessageStatusTransition StartSending(
         string claimedBy,
@@ -282,7 +275,7 @@ public sealed class Message
     }
 
     /// <summary>
-    /// Records a successful delivery attempt.
+    ///     Records a successful delivery attempt.
     /// </summary>
     public MessageStatusTransition RecordSendSuccess(DateTimeOffset sentAt)
     {
@@ -298,7 +291,7 @@ public sealed class Message
 
 
     /// <summary>
-    /// Records a failed delivery attempt and determines retry or terminal failure.
+    ///     Records a failed delivery attempt and determines retry or terminal failure.
     /// </summary>
     public MessageStatusTransition RecordSendAttemptFailure(
         int maxAttempts,
@@ -306,11 +299,9 @@ public sealed class Message
         DateTimeOffset failedAt)
     {
         if (maxAttempts <= 0)
-        {
             throw new ArgumentOutOfRangeException(
                 nameof(maxAttempts),
                 "Max attempts must be greater than zero.");
-        }
 
         AttemptCount += 1;
 
@@ -327,7 +318,7 @@ public sealed class Message
     }
 
     /// <summary>
-    /// Cancels the message from any non-terminal state.
+    ///     Cancels the message from any non-terminal state.
     /// </summary>
     public MessageStatusTransition Cancel(DateTimeOffset canceledAt)
     {
@@ -335,13 +326,13 @@ public sealed class Message
     }
 
     /// <summary>
-    /// Transitions the message to a new status and records the logical event time.
+    ///     Transitions the message to a new status and records the logical event time.
     /// </summary>
     /// <remarks>
-    /// UpdatedAt represents the logical time of the state transition as observed by the caller.
-    /// Persisted timestamps are assigned by the database and may differ.
-    /// After persistence, the in-memory aggregate is considered dirty with respect to DB-owned timestamps.
-    /// See Platform.Persistence/README.md — Timestamp Ownership.
+    ///     UpdatedAt represents the logical time of the state transition as observed by the caller.
+    ///     Persisted timestamps are assigned by the database and may differ.
+    ///     After persistence, the in-memory aggregate is considered dirty with respect to DB-owned timestamps.
+    ///     See Platform.Persistence/README.md — Timestamp Ownership.
     /// </remarks>
     private MessageStatusTransition TransitionTo(
         MessageStatus toStatus,
@@ -366,75 +357,53 @@ public sealed class Message
         string? templateKey)
     {
         if (contentSource == MessageContentSource.Template && templateKey is null)
-        {
             throw new InvalidOperationException(
                 "Template content requires template_key to be non-null.");
-        }
 
         if (contentSource == MessageContentSource.Direct && templateKey is not null)
-        {
             throw new InvalidOperationException(
                 "Direct content requires template_key to be null.");
-        }
     }
 
     private static string? NormalizeIdempotencyKey(string? idempotencyKey)
     {
-        if (idempotencyKey is null)
-        {
-            return null;
-        }
+        if (idempotencyKey is null) return null;
 
         var normalized = idempotencyKey.Trim();
-        if (normalized.Length == 0)
-        {
-            return null;
-        }
+        if (normalized.Length == 0) return null;
 
         if (normalized.Length > MaxIdempotencyKeyLength)
-        {
             throw new ArgumentException(
                 $"Idempotency key cannot exceed {MaxIdempotencyKeyLength} characters.",
                 nameof(idempotencyKey));
-        }
 
         return normalized;
     }
 
     private void EnsureParticipantMessageIds()
     {
-        foreach (var participant in _participants)
-        {
-            EnsureParticipantBelongs(participant);
-        }
+        foreach (var participant in _participants) EnsureParticipantBelongs(participant);
     }
 
     private void EnsureParticipantBelongs(MessageParticipant participant)
     {
         if (participant.MessageId != Id)
-        {
             throw new ArgumentException(
                 $"Participant message_id '{participant.MessageId}' does not match message '{Id}'.",
                 nameof(participant));
-        }
     }
 
     private static void EnsureReviewActor(ActorType actorType)
     {
         if (!actorType.IsHuman)
-        {
             throw new ApprovalRuleViolationException(
                 "Approval may only be performed by human actors.");
-        }
     }
 
     private void EnsureReviewAllowed(string actionLabel)
     {
         if (Status != MessageStatus.PendingApproval)
-        {
             throw new ApprovalRuleViolationException(
                 $"{actionLabel} is only allowed when status is '{MessageStatus.PendingApproval}'. Current status: '{Status}'.");
-        }
     }
-
 }

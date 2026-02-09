@@ -39,5 +39,4 @@ public sealed class MessageAuditEvent
     public string ActorId { get; }
     public DateTimeOffset OccurredAt { get; }
     public JsonElement? MetadataJson { get; }
-
 }

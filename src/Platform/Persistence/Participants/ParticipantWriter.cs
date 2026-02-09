@@ -10,23 +10,24 @@ namespace Messaging.Platform.Persistence.Participants;
 public sealed class ParticipantWriter
 {
     private const string InsertSql = """
-        insert into message_participants (
-          id,
-          message_id,
-          role,
-          address,
-          display_name
-        )
-        values (
-          @Id,
-          @MessageId,
-          @Role::message_participant_role,
-          @Address,
-          @DisplayName
-        );
-        """;
+                                     insert into message_participants (
+                                       id,
+                                       message_id,
+                                       role,
+                                       address,
+                                       display_name
+                                     )
+                                     values (
+                                       @Id,
+                                       @MessageId,
+                                       @Role::message_participant_role,
+                                       @Address,
+                                       @DisplayName
+                                     );
+                                     """;
 
-    public async Task InsertAsync(IEnumerable<MessageParticipant> participants, DbTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task InsertAsync(IEnumerable<MessageParticipant> participants, DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(participants);
         var connection = DbGuard.GetConnection(transaction);
@@ -42,18 +43,13 @@ public sealed class ParticipantWriter
             })
             .ToList();
 
-        if (rows.Count == 0)
-        {
-            return;
-        }
+        if (rows.Count == 0) return;
 
         try
         {
             foreach (var row in rows)
-            {
                 await connection.ExecuteAsync(
-                    new CommandDefinition(InsertSql, row, transaction: transaction, cancellationToken: cancellationToken));
-            }
+                    new CommandDefinition(InsertSql, row, transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex)
         {
@@ -64,5 +60,4 @@ public sealed class ParticipantWriter
             throw new PersistenceException("Failed to insert participants.", ex);
         }
     }
-
 }

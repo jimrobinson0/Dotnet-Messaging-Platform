@@ -1,13 +1,10 @@
-using System;
-using System.IO;
-
 namespace Messaging.Platform.Persistence.Tests.Infrastructure;
 
 internal static class SchemaLocator
 {
     /// <summary>
-    /// Finds the "migrations" directory by walking upward from the test output directory.
-    /// This supports running tests from IDEs, CLI, and CI without hardcoded absolute paths.
+    ///     Finds the "migrations" directory by walking upward from the test output directory.
+    ///     This supports running tests from IDEs, CLI, and CI without hardcoded absolute paths.
     /// </summary>
     public static string FindMigrationsDirectory()
     {
@@ -20,17 +17,11 @@ internal static class SchemaLocator
             {
                 // Require that at least one initial migration exists.
                 var initial = Path.Combine(candidate, "0001_initial.sql");
-                if (File.Exists(initial))
-                {
-                    return candidate;
-                }
+                if (File.Exists(initial)) return candidate;
             }
 
             var parent = Directory.GetParent(dir);
-            if (parent is null)
-            {
-                break;
-            }
+            if (parent is null) break;
 
             dir = parent.FullName;
         }

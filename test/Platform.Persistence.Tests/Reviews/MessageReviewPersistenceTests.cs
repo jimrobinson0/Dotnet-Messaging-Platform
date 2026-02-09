@@ -1,19 +1,19 @@
-using System;
-using System.Threading.Tasks;
 using Dapper;
 using Messaging.Platform.Core;
 using Messaging.Platform.Persistence.Db;
+using Messaging.Platform.Persistence.Exceptions;
 using Messaging.Platform.Persistence.Messages;
 using Messaging.Platform.Persistence.Participants;
 using Messaging.Platform.Persistence.Reviews;
 using Messaging.Platform.Persistence.Tests.Infrastructure;
-using Xunit;
 
 namespace Messaging.Platform.Persistence.Tests.Reviews;
 
 public sealed class MessageReviewPersistenceTests : PostgresTestBase
 {
-    public MessageReviewPersistenceTests(PostgresFixture fixture) : base(fixture) { }
+    public MessageReviewPersistenceTests(PostgresFixture fixture) : base(fixture)
+    {
+    }
 
     [Fact]
     public async Task Insert_approved_review_persists_correctly()
@@ -31,12 +31,15 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
             await participantWriter.InsertAsync(
-                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                ParticipantPrototypeMapper.Bind(persistedMessageId,
+                    ParticipantPrototypeMapper.FromCore(message.Participants)),
                 uow.Transaction);
             await uow.CommitAsync();
         }
@@ -80,12 +83,15 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
             await participantWriter.InsertAsync(
-                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                ParticipantPrototypeMapper.Bind(persistedMessageId,
+                    ParticipantPrototypeMapper.FromCore(message.Participants)),
                 uow.Transaction);
             await uow.CommitAsync();
         }
@@ -128,12 +134,15 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
             await participantWriter.InsertAsync(
-                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                ParticipantPrototypeMapper.Bind(persistedMessageId,
+                    ParticipantPrototypeMapper.FromCore(message.Participants)),
                 uow.Transaction);
             await uow.CommitAsync();
         }
@@ -144,8 +153,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
             await reviewWriter.InsertAsync(review1, uow.Transaction);
 
             var review2 = TestData.CreateApprovedReview(persistedMessageId);
-            await Assert.ThrowsAsync<Messaging.Platform.Persistence.Exceptions.ConcurrencyException>(
-                () => reviewWriter.InsertAsync(review2, uow.Transaction));
+            await Assert.ThrowsAsync<ConcurrencyException>(() => reviewWriter.InsertAsync(review2, uow.Transaction));
         }
     }
 
@@ -165,23 +173,26 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
+            var insertResult =
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
             persistedMessageId = insertResult.MessageId;
             await participantWriter.InsertAsync(
-                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                ParticipantPrototypeMapper.Bind(persistedMessageId,
+                    ParticipantPrototypeMapper.FromCore(message.Participants)),
                 uow.Transaction);
             await uow.CommitAsync();
         }
 
         var review = new MessageReview(
-            id: Guid.NewGuid(),
-            messageId: persistedMessageId,
-            decision: ReviewDecision.Approved,
-            decidedBy: "reviewer",
-            decidedAt: DateTimeOffset.UtcNow,
-            notes: null);
+            Guid.NewGuid(),
+            persistedMessageId,
+            ReviewDecision.Approved,
+            "reviewer",
+            DateTimeOffset.UtcNow,
+            null);
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {

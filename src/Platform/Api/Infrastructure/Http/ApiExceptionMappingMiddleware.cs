@@ -7,8 +7,8 @@ namespace Messaging.Platform.Api.Infrastructure.Http;
 
 public sealed class ApiExceptionMappingMiddleware
 {
-    private readonly RequestDelegate _next;
     private readonly ILogger<ApiExceptionMappingMiddleware> _logger;
+    private readonly RequestDelegate _next;
 
     public ApiExceptionMappingMiddleware(
         RequestDelegate next,
@@ -82,10 +82,7 @@ public sealed class ApiExceptionMappingMiddleware
         string title,
         string detail)
     {
-        if (context.Response.HasStarted)
-        {
-            return;
-        }
+        if (context.Response.HasStarted) return;
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";

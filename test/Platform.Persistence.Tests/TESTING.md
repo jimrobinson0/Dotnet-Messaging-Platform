@@ -24,6 +24,7 @@ dotnet test tests/Platform.Persistence.Tests
 ## Adding new tests
 
 Prefer end-to-end persistence contracts:
+
 - arrange domain objects (Core)
 - persist via Persistence writers
 - rehydrate via Persistence readers

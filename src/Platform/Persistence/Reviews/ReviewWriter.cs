@@ -10,25 +10,26 @@ namespace Messaging.Platform.Persistence.Reviews;
 public sealed class ReviewWriter
 {
     private const string InsertSql = """
-        insert into message_reviews (
-          id,
-          message_id,
-          decision,
-          decided_by,
-          decided_at,
-          notes
-        )
-        values (
-          @Id,
-          @MessageId,
-          @Decision::review_decision,
-          @DecidedBy,
-          @DecidedAt,
-          @Notes
-        );
-        """;
+                                     insert into message_reviews (
+                                       id,
+                                       message_id,
+                                       decision,
+                                       decided_by,
+                                       decided_at,
+                                       notes
+                                     )
+                                     values (
+                                       @Id,
+                                       @MessageId,
+                                       @Decision::review_decision,
+                                       @DecidedBy,
+                                       @DecidedAt,
+                                       @Notes
+                                     );
+                                     """;
 
-    public async Task InsertAsync(MessageReview review, DbTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task InsertAsync(MessageReview review, DbTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(review);
         var connection = DbGuard.GetConnection(transaction);
@@ -46,7 +47,7 @@ public sealed class ReviewWriter
         try
         {
             await connection.ExecuteAsync(
-                new CommandDefinition(InsertSql, parameters, transaction: transaction, cancellationToken: cancellationToken));
+                new CommandDefinition(InsertSql, parameters, transaction, cancellationToken: cancellationToken));
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
@@ -63,5 +64,4 @@ public sealed class ReviewWriter
             throw new PersistenceException("Failed to insert review.", ex);
         }
     }
-
 }

@@ -1,5 +1,3 @@
-using Messaging.Platform.Core;
-
 namespace Messaging.Platform.Core.Exceptions;
 
 public sealed class InvalidMessageStatusTransitionException : Exception
