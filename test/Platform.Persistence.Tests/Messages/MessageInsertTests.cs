@@ -28,19 +28,23 @@ public sealed class MessageInsertTests : PostgresTestBase
         var message = TestData.CreatePendingApprovalMessage(messageId, "round-trip-key");
 
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
             var auditWriter = new AuditWriter();
 
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(message.Id, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            Assert.NotEqual(message.Id, insertResult.MessageId);
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(insertResult.MessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
 
             await auditWriter.InsertAsync(
-                TestData.CreateAuditEvent(messageId, null, message.Status, "MessageCreated"),
+                TestData.CreateAuditEvent(insertResult.MessageId, null, message.Status, "MessageCreated"),
                 uow.Transaction);
 
             await uow.CommitAsync();
@@ -49,12 +53,16 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var reader = new MessageReader();
-            var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetByIdAsync(insertResult.MessageId, uow.Transaction);
 
-            Assert.Equal(messageId, loaded.Id);
+            Assert.Equal(insertResult.MessageId, loaded.Id);
             Assert.Equal("email", loaded.Channel);
             Assert.Equal(message.Status, loaded.Status);
             Assert.Equal(message.ContentSource, loaded.ContentSource);
+            Assert.Null(loaded.ClaimedBy);
+            Assert.Null(loaded.ClaimedAt);
+            Assert.Null(loaded.SentAt);
+            Assert.Null(loaded.FailureReason);
             Assert.Equal(0, loaded.AttemptCount);
             Assert.Equal("Subject", loaded.Subject);
             Assert.Equal("Hello", loaded.TextBody);
@@ -80,22 +88,25 @@ public sealed class MessageInsertTests : PostgresTestBase
         var message = TestData.CreateApprovedMessage(messageId);
 
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(message.Id, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(insertResult.MessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var reader = new MessageReader();
-            var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetByIdAsync(insertResult.MessageId, uow.Transaction);
 
             Assert.Equal(Messaging.Platform.Core.MessageStatus.Approved, loaded.Status);
             Assert.Equal("Auto-approved subject", loaded.Subject);
@@ -113,22 +124,25 @@ public sealed class MessageInsertTests : PostgresTestBase
         var message = TestData.CreateTemplateMessage(messageId);
 
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(message.Id, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(insertResult.MessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var reader = new MessageReader();
-            var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetByIdAsync(insertResult.MessageId, uow.Transaction);
 
             Assert.Equal(Messaging.Platform.Core.MessageContentSource.Template, loaded.ContentSource);
             Assert.Equal("welcome-email", loaded.TemplateKey);
@@ -151,28 +165,30 @@ public sealed class MessageInsertTests : PostgresTestBase
         var message = TestData.CreateMessageWithoutParticipants(messageId);
 
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(message.Id, insertResult.MessageId);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            Assert.NotEqual(message.Id, insertResult.MessageId);
             await uow.CommitAsync();
         }
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var reader = new MessageReader();
-            var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetByIdAsync(insertResult.MessageId, uow.Transaction);
 
-            Assert.Equal(messageId, loaded.Id);
+            Assert.Equal(insertResult.MessageId, loaded.Id);
             Assert.Equal("email", loaded.Channel);
             Assert.Empty(loaded.Participants);
         }
     }
 
     [Fact]
-    public async Task Insert_duplicate_message_throws_ConcurrencyException()
+    public async Task Insert_message_uses_db_generated_id_instead_of_aggregate_id()
     {
         await ResetDbAsync();
 
@@ -180,23 +196,21 @@ public sealed class MessageInsertTests : PostgresTestBase
         var message = TestData.CreatePendingApprovalMessage(messageId);
 
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
+        MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(message.Id, insertResult.MessageId);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            Assert.NotEqual(message.Id, insertResult.MessageId);
             await uow.CommitAsync();
         }
 
-        await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
-        {
-            var messageWriter = new MessageWriter();
-            var duplicate = TestData.CreatePendingApprovalMessage(messageId);
-
-            await Assert.ThrowsAsync<Messaging.Platform.Persistence.Exceptions.ConcurrencyException>(
-                () => messageWriter.InsertIdempotentAsync(duplicate, uow.Transaction));
-        }
+        await using var verifyUow = await UnitOfWork.BeginAsync(connectionFactory);
+        var reader = new MessageReader();
+        var loaded = await reader.GetByIdAsync(insertResult.MessageId, verifyUow.Transaction);
+        Assert.Equal(insertResult.MessageId, loaded.Id);
     }
 
     [Fact]
@@ -229,19 +243,20 @@ public sealed class MessageInsertTests : PostgresTestBase
         MessageInsertResult firstInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            firstInsert = await messageWriter.InsertIdempotentAsync(firstMessage, uow.Transaction);
+            firstInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
         MessageInsertResult secondInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            secondInsert = await messageWriter.InsertIdempotentAsync(secondMessage, uow.Transaction);
+            secondInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
         Assert.True(firstInsert.WasCreated);
-        Assert.Equal(firstMessage.Id, firstInsert.MessageId);
+        Assert.NotEqual(Guid.Empty, firstInsert.MessageId);
+        Assert.NotEqual(firstMessage.Id, firstInsert.MessageId);
         Assert.False(secondInsert.WasCreated);
         Assert.Equal(firstInsert.MessageId, secondInsert.MessageId);
         Assert.NotEqual(secondMessage.Id, secondInsert.MessageId);
@@ -298,14 +313,14 @@ public sealed class MessageInsertTests : PostgresTestBase
         MessageInsertResult firstInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            firstInsert = await messageWriter.InsertIdempotentAsync(firstMessage, uow.Transaction);
+            firstInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
         MessageInsertResult secondInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            secondInsert = await messageWriter.InsertIdempotentAsync(secondMessage, uow.Transaction);
+            secondInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
@@ -346,14 +361,14 @@ public sealed class MessageInsertTests : PostgresTestBase
         MessageInsertResult firstInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            firstInsert = await messageWriter.InsertIdempotentAsync(firstMessage, uow.Transaction);
+            firstInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
         MessageInsertResult secondInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            secondInsert = await messageWriter.InsertIdempotentAsync(secondMessage, uow.Transaction);
+            secondInsert = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage), uow.Transaction);
             await uow.CommitAsync();
         }
 
@@ -399,7 +414,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                     participants: Array.Empty<MessageParticipant>());
 
                 await using var uow = await UnitOfWork.BeginAsync(connectionFactory);
-                var result = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+                var result = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
                 await uow.CommitAsync();
                 return result;
             })
@@ -431,16 +446,24 @@ public sealed class MessageInsertTests : PostgresTestBase
         var firstMessageId = Guid.NewGuid();
         var firstMessage = TestData.CreatePendingApprovalMessage(firstMessageId, key);
         var firstResult = await repository.CreateAsync(
-            firstMessage,
-            firstMessage.Participants,
-            TestData.CreateAuditEvent(firstMessageId, null, firstMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                firstMessage.Status,
+                "MessageCreated"));
 
         var secondMessageId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondMessageId, key);
         var secondResult = await repository.CreateAsync(
-            secondMessage,
-            secondMessage.Participants,
-            TestData.CreateAuditEvent(secondMessageId, null, secondMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            ParticipantPrototypeMapper.FromCore(secondMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                secondMessage.Status,
+                "MessageCreated"));
 
         Assert.True(firstResult.WasCreated);
         Assert.False(secondResult.WasCreated);
@@ -491,9 +514,13 @@ public sealed class MessageInsertTests : PostgresTestBase
             participants: firstParticipants);
 
         var firstResult = await repository.CreateAsync(
-            firstMessage,
-            firstParticipants,
-            TestData.CreateAuditEvent(firstId, null, firstMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            ParticipantPrototypeMapper.FromCore(firstParticipants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                firstMessage.Status,
+                "MessageCreated"));
 
         var secondId = Guid.NewGuid();
         var secondParticipants = TestData.CreateParticipants(secondId);
@@ -512,9 +539,13 @@ public sealed class MessageInsertTests : PostgresTestBase
             participants: secondParticipants);
 
         var replayResult = await repository.CreateAsync(
-            secondMessage,
-            secondParticipants,
-            TestData.CreateAuditEvent(secondId, null, secondMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            ParticipantPrototypeMapper.FromCore(secondParticipants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                secondMessage.Status,
+                "MessageCreated"));
 
         Assert.Equal(firstResult.Message.Id, replayResult.Message.Id);
         Assert.False(replayResult.WasCreated);
@@ -541,16 +572,24 @@ public sealed class MessageInsertTests : PostgresTestBase
         var firstId = Guid.NewGuid();
         var firstMessage = TestData.CreatePendingApprovalMessage(firstId);
         var firstResult = await repository.CreateAsync(
-            firstMessage,
-            firstMessage.Participants,
-            TestData.CreateAuditEvent(firstId, null, firstMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                firstMessage.Status,
+                "MessageCreated"));
 
         var secondId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondId);
         var secondResult = await repository.CreateAsync(
-            secondMessage,
-            secondMessage.Participants,
-            TestData.CreateAuditEvent(secondId, null, secondMessage.Status, "MessageCreated"));
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            ParticipantPrototypeMapper.FromCore(secondMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                secondMessage.Status,
+                "MessageCreated"));
 
         Assert.True(firstResult.WasCreated);
         Assert.True(secondResult.WasCreated);
@@ -591,9 +630,13 @@ public sealed class MessageInsertTests : PostgresTestBase
                     participants: participants);
 
                 return await repository.CreateAsync(
-                    message,
-                    participants,
-                    TestData.CreateAuditEvent(messageId, null, message.Status, "MessageCreated"));
+                    MessageCreateIntentMapper.ToCreateIntent(message),
+                    ParticipantPrototypeMapper.FromCore(participants),
+                    persistedMessageId => TestData.CreateAuditEvent(
+                        persistedMessageId,
+                        null,
+                        message.Status,
+                        "MessageCreated"));
             })
             .ToArray();
 
@@ -616,8 +659,13 @@ public sealed class MessageInsertTests : PostgresTestBase
             "select count(1) from message_participants where message_id = @MessageId",
             new { MessageId = distinctMessageIds[0] });
 
+        var auditCount = await connection.QuerySingleAsync<int>(
+            "select count(1) from message_audit_events where message_id = @MessageId",
+            new { MessageId = distinctMessageIds[0] });
+
         Assert.Equal(1, messageCount);
         Assert.Equal(2, participantCount);
+        Assert.Equal(1, auditCount);
     }
 
     private MessageRepository CreateRepository()

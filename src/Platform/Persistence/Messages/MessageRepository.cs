@@ -32,23 +32,27 @@ public sealed class MessageRepository
     }
 
     public async Task<MessageCreateResult> CreateAsync(
-        Message message,
-        IReadOnlyCollection<MessageParticipant> participants,
-        MessageAuditEvent auditEvent,
+        MessageCreateIntent createIntent,
+        IReadOnlyCollection<MessageParticipantPrototype> participants,
+        Func<Guid, MessageAuditEvent> auditEventFactory,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(createIntent);
         ArgumentNullException.ThrowIfNull(participants);
-        ArgumentNullException.ThrowIfNull(auditEvent);
+        ArgumentNullException.ThrowIfNull(auditEventFactory);
 
         MessageInsertResult insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken))
         {
-            insertResult = await _messageWriter.InsertIdempotentAsync(message, uow.Transaction, cancellationToken);
+            insertResult = await _messageWriter.InsertIdempotentAsync(createIntent, uow.Transaction, cancellationToken);
             if (insertResult.WasCreated)
             {
-                await _participantWriter.InsertAsync(participants, uow.Transaction, cancellationToken);
-                await _auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
+                var persistedParticipants = ParticipantPrototypeMapper.Bind(insertResult.MessageId, participants);
+                var persistedAuditEvent = auditEventFactory(insertResult.MessageId);
+                ArgumentNullException.ThrowIfNull(persistedAuditEvent);
+
+                await _participantWriter.InsertAsync(persistedParticipants, uow.Transaction, cancellationToken);
+                await _auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
             }
 
             await uow.CommitAsync(cancellationToken);

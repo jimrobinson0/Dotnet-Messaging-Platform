@@ -27,17 +27,21 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reviewWriter = new ReviewWriter();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
-        var review = TestData.CreateApprovedReview(messageId);
+        var review = TestData.CreateApprovedReview(persistedMessageId);
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
@@ -49,7 +53,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
                 from message_reviews
                 where message_id = @MessageId
                 """,
-                new { MessageId = messageId },
+                new { MessageId = persistedMessageId },
                 uow.Transaction);
 
             Assert.Equal("Approved", (string)row.decision);
@@ -72,17 +76,21 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reviewWriter = new ReviewWriter();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
-        var review = TestData.CreateRejectedReview(messageId);
+        var review = TestData.CreateRejectedReview(persistedMessageId);
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
@@ -94,7 +102,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
                 from message_reviews
                 where message_id = @MessageId
                 """,
-                new { MessageId = messageId },
+                new { MessageId = persistedMessageId },
                 uow.Transaction);
 
             Assert.Equal("Rejected", (string)row.decision);
@@ -116,22 +124,26 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reviewWriter = new ReviewWriter();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var review1 = TestData.CreateApprovedReview(messageId);
+            var review1 = TestData.CreateApprovedReview(persistedMessageId);
             await reviewWriter.InsertAsync(review1, uow.Transaction);
 
-            var review2 = TestData.CreateApprovedReview(messageId);
+            var review2 = TestData.CreateApprovedReview(persistedMessageId);
             await Assert.ThrowsAsync<Messaging.Platform.Persistence.Exceptions.ConcurrencyException>(
                 () => reviewWriter.InsertAsync(review2, uow.Transaction));
         }
@@ -149,19 +161,23 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reviewWriter = new ReviewWriter();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         var review = new MessageReview(
             id: Guid.NewGuid(),
-            messageId: messageId,
+            messageId: persistedMessageId,
             decision: ReviewDecision.Approved,
             decidedBy: "reviewer",
             decidedAt: DateTimeOffset.UtcNow,
@@ -173,7 +189,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
 
             var notes = await uow.Connection.QuerySingleAsync<string?>(
                 "select notes from message_reviews where message_id = @MessageId",
-                new { MessageId = messageId },
+                new { MessageId = persistedMessageId },
                 uow.Transaction);
 
             Assert.Null(notes);

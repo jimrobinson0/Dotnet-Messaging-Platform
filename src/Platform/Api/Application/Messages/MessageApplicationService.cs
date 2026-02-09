@@ -23,14 +23,14 @@ public sealed class MessageApplicationService : IMessageApplicationService
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var messageId = Guid.NewGuid();
+        var provisionalMessageId = Guid.NewGuid();
         var channel = ParseChannel(command.Channel);
         var contentSource = ParseContentSource(command.ContentSource);
-        var participants = BuildParticipants(messageId, command.Participants);
+        var participants = BuildParticipants(provisionalMessageId, command.Participants);
 
         var message = command.RequiresApproval
             ? Message.CreatePendingApproval(
-                id: messageId,
+                id: provisionalMessageId,
                 channel: channel,
                 contentSource: contentSource,
                 templateKey: command.TemplateKey,
@@ -43,7 +43,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 idempotencyKey: command.IdempotencyKey,
                 participants: participants)
             : Message.CreateApproved(
-                id: messageId,
+                id: provisionalMessageId,
                 channel: channel,
                 contentSource: contentSource,
                 templateKey: command.TemplateKey,
@@ -56,11 +56,14 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 idempotencyKey: command.IdempotencyKey,
                 participants: participants);
 
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message);
+        var participantPrototypes = ParticipantPrototypeMapper.FromCore(message.Participants);
+
         var actorType = ParseActorType(command.ActorType);
         var actorId = RequireValue(command.ActorId, nameof(command.ActorId));
-        var audit = new MessageAuditEvent(
+        Func<Guid, MessageAuditEvent> auditEventFactory = persistedMessageId => new MessageAuditEvent(
             id: Guid.NewGuid(),
-            messageId: messageId,
+            messageId: persistedMessageId,
             eventType: AuditEventTypes.MessageCreated,
             fromStatus: null,
             toStatus: message.Status,
@@ -70,9 +73,9 @@ public sealed class MessageApplicationService : IMessageApplicationService
             metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
         var result = await _messageRepository.CreateAsync(
-            message,
-            participants,
-            audit,
+            createIntent,
+            participantPrototypes,
+            auditEventFactory,
             cancellationToken);
 
         return new CreateMessageResult(result.Message, result.WasCreated);

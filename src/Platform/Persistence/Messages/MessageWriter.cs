@@ -9,50 +9,31 @@ namespace Messaging.Platform.Persistence.Messages;
 
 public sealed class MessageWriter
 {
-    private const string InsertIdempotentSql = """
-        insert into messages (
-          id,
-          channel,
-          status,
-          content_source,
-          claimed_by,
-          claimed_at,
-          sent_at,
-          failure_reason,
-          attempt_count,
-          template_key,
-          template_version,
-          template_resolved_at,
-          subject,
-          text_body,
-          html_body,
-          template_variables,
-          idempotency_key
-        )
-        values (
-          @Id,
-          @Channel,
-          @Status::message_status,
-          @ContentSource::message_content_source,
-          @ClaimedBy,
-          @ClaimedAt,
-          @SentAt,
-          @FailureReason,
-          @AttemptCount,
-          @TemplateKey,
-          @TemplateVersion,
-          @TemplateResolvedAt,
-          @Subject,
-          @TextBody,
-          @HtmlBody,
-          @TemplateVariables::jsonb,
-          @IdempotencyKey
-        )
-        on conflict (idempotency_key) where (idempotency_key is not null)
-        do update /* DO UPDATE ... RETURNING to ensure MVCC-safe idempotent inserts */
-            set idempotency_key = excluded.idempotency_key
-        returning id;
-        """;
+    // Idempotent insert contract:
+    // - Always returns exactly one row
+    // - Id is either the newly inserted message id or the existing id for the idempotency key
+    // - WasCreated is true iff a new row was inserted
+    // - SQL is authoritative; C# must not attempt replay lookup or repair
+    internal const string InsertIdempotentSql = @"
+with inserted as (
+  insert into messages (
+    channel, status, content_source, template_key, template_version,
+    template_resolved_at, subject, text_body, html_body,
+    template_variables, idempotency_key
+  )
+  values (
+    @Channel, @Status::message_status, @ContentSource::message_content_source,
+    @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
+    @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey
+  )
+  on conflict (idempotency_key) where (idempotency_key is not null)
+  do nothing
+  returning id
+)
+select
+  coalesce((select id from inserted), (select id from messages where idempotency_key = @IdempotencyKey)) as Id,
+  ((select id from inserted) is not null) as WasCreated;
+";
 
     private const string UpdateSql = """
         update messages
@@ -68,34 +49,33 @@ public sealed class MessageWriter
         """;
 
     public async Task<MessageInsertResult> InsertIdempotentAsync(
-        Message message,
+        MessageCreateIntent createIntent,
         DbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(createIntent);
         var connection = DbGuard.GetConnection(transaction);
-        var parameters = BuildInsertParameters(message);
+        var parameters = BuildInsertParameters(createIntent);
 
         try
         {
-            var insertedId = await connection.QuerySingleOrDefaultAsync<Guid?>(
+            var row = await connection.QuerySingleAsync<MessageInsertRow>(
                 new CommandDefinition(
                     InsertIdempotentSql,
                     parameters,
                     transaction: transaction,
                     cancellationToken: cancellationToken));
 
-            if (insertedId == null)
+
+            if (row.Id == Guid.Empty)
             {
                 throw new PersistenceException(
-                    $"Idempotent insert returned no message id for message '{message.Id}'.");
+                    $"Message insert returned empty id; idempotencyKey={createIntent.IdempotencyKey ?? "<null>"}");
             }
 
-            var messageId = insertedId.Value;
-
             return new MessageInsertResult(
-                MessageId: messageId,
-                WasCreated: messageId == message.Id);
+                MessageId: row.Id,
+                WasCreated: row.WasCreated);
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
@@ -145,28 +125,28 @@ public sealed class MessageWriter
         }
     }
 
-    private static object BuildInsertParameters(Message message)
+    private static object BuildInsertParameters(MessageCreateIntent createIntent)
     {
         return new
         {
-            message.Id,
-            message.Channel,
-            Status = message.Status.ToString(),
-            ContentSource = message.ContentSource.ToString(),
-            message.ClaimedBy,
-            message.ClaimedAt,
-            message.SentAt,
-            message.FailureReason,
-            message.AttemptCount,
-            message.TemplateKey,
-            message.TemplateVersion,
-            message.TemplateResolvedAt,
-            message.Subject,
-            message.TextBody,
-            message.HtmlBody,
-            TemplateVariables = MessageMapper.SerializeJson(message.TemplateVariables),
-            message.IdempotencyKey
+            createIntent.Channel,
+            Status = createIntent.Status.ToString(),
+            ContentSource = createIntent.ContentSource.ToString(),
+            createIntent.TemplateKey,
+            createIntent.TemplateVersion,
+            createIntent.TemplateResolvedAt,
+            createIntent.Subject,
+            createIntent.TextBody,
+            createIntent.HtmlBody,
+            TemplateVariables = MessageMapper.SerializeJson(createIntent.TemplateVariables),
+            createIntent.IdempotencyKey
         };
+    }
+
+    private sealed class MessageInsertRow
+    {
+        public Guid Id { get; set; }
+        public bool WasCreated { get; set; }
     }
 
 }

@@ -25,21 +25,25 @@ public sealed class MessageUpdateTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reader = new MessageReader();
+        Guid persistedMessageId;
 
         // Insert + participants
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         DateTimeOffset firstUpdatedAt;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetByIdAsync(persistedMessageId, uow.Transaction);
             firstUpdatedAt = loaded.UpdatedAt;
         }
 
@@ -49,7 +53,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
         // Transition in Core, then persist.
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.Cancel(DateTimeOffset.UtcNow);
 
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
@@ -58,7 +62,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var after = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var after = await reader.GetByIdAsync(persistedMessageId, uow.Transaction);
 
             Assert.Equal(MessageStatus.Canceled, after.Status);
             Assert.True(after.UpdatedAt > firstUpdatedAt,
@@ -78,20 +82,24 @@ public sealed class MessageUpdateTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reader = new MessageReader();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         var claimedAt = DateTimeOffset.UtcNow;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.StartSending("worker-1", claimedAt);
 
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
@@ -100,7 +108,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var after = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var after = await reader.GetByIdAsync(persistedMessageId, uow.Transaction);
 
             Assert.Equal(MessageStatus.Sending, after.Status);
             Assert.Equal("worker-1", after.ClaimedBy);
@@ -120,20 +128,24 @@ public sealed class MessageUpdateTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reader = new MessageReader();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         // Transition: Approved → Sending → Sent
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.StartSending("worker-1", DateTimeOffset.UtcNow);
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -142,7 +154,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
         var sentAt = DateTimeOffset.UtcNow;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.RecordSendSuccess(sentAt);
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -150,7 +162,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var after = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var after = await reader.GetByIdAsync(persistedMessageId, uow.Transaction);
 
             Assert.Equal(MessageStatus.Sent, after.Status);
             Assert.NotNull(after.SentAt);
@@ -171,20 +183,24 @@ public sealed class MessageUpdateTests : PostgresTestBase
         var messageWriter = new MessageWriter();
         var participantWriter = new ParticipantWriter();
         var reader = new MessageReader();
+        Guid persistedMessageId;
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var insertResult = await messageWriter.InsertIdempotentAsync(message, uow.Transaction);
+            var insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message), uow.Transaction);
             Assert.True(insertResult.WasCreated);
-            Assert.Equal(messageId, insertResult.MessageId);
-            await participantWriter.InsertAsync(message.Participants, uow.Transaction);
+            Assert.NotEqual(Guid.Empty, insertResult.MessageId);
+            persistedMessageId = insertResult.MessageId;
+            await participantWriter.InsertAsync(
+                ParticipantPrototypeMapper.Bind(persistedMessageId, ParticipantPrototypeMapper.FromCore(message.Participants)),
+                uow.Transaction);
             await uow.CommitAsync();
         }
 
         // Transition: Approved → Sending
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.StartSending("worker-1", DateTimeOffset.UtcNow);
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -193,7 +209,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
         // Fail with retries remaining → back to Approved
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var loaded = await reader.GetForUpdateAsync(messageId, uow.Transaction);
+            var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
             loaded.RecordSendAttemptFailure(maxAttempts: 3, "SMTP timeout", DateTimeOffset.UtcNow);
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -201,7 +217,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
-            var after = await reader.GetByIdAsync(messageId, uow.Transaction);
+            var after = await reader.GetByIdAsync(persistedMessageId, uow.Transaction);
 
             Assert.Equal(MessageStatus.Approved, after.Status);
             Assert.Equal("SMTP timeout", after.FailureReason);
