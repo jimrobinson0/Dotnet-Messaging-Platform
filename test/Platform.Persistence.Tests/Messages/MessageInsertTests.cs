@@ -18,6 +18,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_and_rehydrate_message_round_trips_fields_and_participants()
     {
         await ResetDbAsync();
@@ -80,6 +81,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_approved_message_persists_correct_status()
     {
         await ResetDbAsync();
@@ -118,6 +120,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_template_message_round_trips_template_fields_and_variables()
     {
         await ResetDbAsync();
@@ -161,6 +164,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_message_without_participants_round_trips_with_empty_list()
     {
         await ResetDbAsync();
@@ -193,6 +197,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_message_uses_db_generated_id_instead_of_aggregate_id()
     {
         await ResetDbAsync();
@@ -220,6 +225,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task GetByIdAsync_for_nonexistent_id_throws_NotFoundException()
     {
         await ResetDbAsync();
@@ -232,6 +238,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task InsertIdempotentAsync_same_idempotency_key_returns_same_message_id_and_single_row()
     {
         await ResetDbAsync();
@@ -281,6 +288,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task InsertIdempotentAsync_same_key_different_payload_does_not_mutate_original_row()
     {
         await ResetDbAsync();
@@ -360,6 +368,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task InsertIdempotentAsync_without_idempotency_key_creates_distinct_rows()
     {
         await ResetDbAsync();
@@ -405,6 +414,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task InsertIdempotentAsync_concurrent_same_key_returns_single_message_id_and_single_row()
     {
         await ResetDbAsync();
@@ -456,6 +466,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task CreateAsync_with_same_idempotency_key_returns_same_message_and_inserts_once()
     {
         await ResetDbAsync();
@@ -510,6 +521,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task CreateAsync_with_same_key_and_different_payload_does_not_mutate_existing_message()
     {
         await ResetDbAsync();
@@ -583,6 +595,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task CreateAsync_without_idempotency_key_creates_distinct_messages()
     {
         await ResetDbAsync();
@@ -623,6 +636,7 @@ public sealed class MessageInsertTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task CreateAsync_concurrent_requests_with_same_key_store_one_message()
     {
         await ResetDbAsync();

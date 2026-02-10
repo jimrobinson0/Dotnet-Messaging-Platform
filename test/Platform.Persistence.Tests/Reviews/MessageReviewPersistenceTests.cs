@@ -16,6 +16,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_approved_review_persists_correctly()
     {
         await ResetDbAsync();
@@ -68,6 +69,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_rejected_review_persists_correctly()
     {
         await ResetDbAsync();
@@ -119,6 +121,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Inserting_two_reviews_for_same_message_throws_ConcurrencyException()
     {
         await ResetDbAsync();
@@ -158,6 +161,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Review_with_null_notes_persists_correctly()
     {
         await ResetDbAsync();

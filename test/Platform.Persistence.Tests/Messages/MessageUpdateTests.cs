@@ -14,6 +14,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Update_persists_status_and_updated_at_changes()
     {
         await ResetDbAsync();
@@ -74,6 +75,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Update_persists_claimed_by_and_claimed_at_after_StartSending()
     {
         await ResetDbAsync();
@@ -123,6 +125,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Update_persists_sent_at_and_attempt_count_after_RecordSendSuccess()
     {
         await ResetDbAsync();
@@ -181,6 +184,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Update_persists_failure_reason_after_RecordSendAttemptFailure()
     {
         await ResetDbAsync();
@@ -238,6 +242,7 @@ public sealed class MessageUpdateTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Update_for_nonexistent_message_throws_NotFoundException()
     {
         await ResetDbAsync();

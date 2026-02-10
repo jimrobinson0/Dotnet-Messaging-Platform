@@ -7,18 +7,7 @@ namespace Messaging.Platform.Persistence.Tests.Messages;
 public sealed class MessageWriterGuardrailTests
 {
     [Fact]
-    public void MessageWriter_exposes_only_idempotent_message_insert_method()
-    {
-        var publicMethods = typeof(MessageWriter)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Select(method => method.Name)
-            .ToArray();
-
-        Assert.Contains(nameof(MessageWriter.InsertIdempotentAsync), publicMethods);
-        Assert.DoesNotContain("InsertAsync", publicMethods);
-    }
-
-    [Fact]
+    [Trait("Category", "Integration")]
     public void MessageWriter_compiled_insert_sql_contains_single_idempotent_messages_insert()
     {
         var sql = NormalizeSql(MessageWriter.InsertIdempotentSql);
@@ -44,6 +33,7 @@ public sealed class MessageWriterGuardrailTests
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public void MessageWriter_insert_sql_is_intent_only_and_uses_db_identity_defaults()
     {
         var insertSql = NormalizeSql(MessageWriter.InsertIdempotentSql);

@@ -15,6 +15,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_audit_event_persists_row()
     {
         await ResetDbAsync();
@@ -58,6 +59,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_audit_event_with_status_transition_persists_from_and_to()
     {
         await ResetDbAsync();
@@ -104,6 +106,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Insert_audit_event_with_metadata_json_round_trips()
     {
         await ResetDbAsync();
@@ -150,6 +153,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task Multiple_audit_events_for_same_message_are_all_persisted()
     {
         await ResetDbAsync();
