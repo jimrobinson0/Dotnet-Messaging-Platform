@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using Messaging.Platform.Api.Application.Messages;
+using Messaging.Platform.Api.Infrastructure.Auth;
 using Messaging.Platform.Core;
+using Messaging.Platform.Persistence.Users;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -25,7 +27,9 @@ public sealed class CreateMessageApiContractTests
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new CreateMessageResult(createdMessage, true)));
 
-        await using var factory = new MessagingApiFactory(service);
+        var resolver = BuildResolver();
+
+        await using var factory = new MessagingApiFactory(service, resolver);
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
@@ -37,18 +41,19 @@ public sealed class CreateMessageApiContractTests
                 requiresApproval = false,
                 subject = "Subject",
                 textBody = "Hello",
-                participants = Array.Empty<object>(),
-                actorType = "System",
-                actorId = "api"
+                participants = Array.Empty<object>()
             })
         };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", "  header-key  ");
+        request.Headers.TryAddWithoutValidation("X-Debug-User", "admin@local.dev");
+        request.Headers.TryAddWithoutValidation("X-Debug-Role", "admin");
 
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotNull(capturedCommand);
         Assert.Equal("header-key", capturedCommand!.IdempotencyKey);
+        Assert.NotNull(capturedCommand.ActorUserId);
     }
 
     [Fact]
@@ -61,7 +66,7 @@ public sealed class CreateMessageApiContractTests
         service.CreateAsync(Arg.Any<CreateMessageCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new CreateMessageResult(replayedMessage, false)));
 
-        await using var factory = new MessagingApiFactory(service);
+        await using var factory = new MessagingApiFactory(service, BuildResolver());
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
@@ -73,12 +78,12 @@ public sealed class CreateMessageApiContractTests
                 requiresApproval = false,
                 subject = "Subject",
                 textBody = "Hello",
-                participants = Array.Empty<object>(),
-                actorType = "System",
-                actorId = "api"
+                participants = Array.Empty<object>()
             })
         };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", "replay-key");
+        request.Headers.TryAddWithoutValidation("X-Debug-User", "admin@local.dev");
+        request.Headers.TryAddWithoutValidation("X-Debug-Role", "admin");
 
         var response = await client.SendAsync(request);
 
@@ -91,7 +96,7 @@ public sealed class CreateMessageApiContractTests
     {
         var service = Substitute.For<IMessageApplicationService>();
 
-        await using var factory = new MessagingApiFactory(service);
+        await using var factory = new MessagingApiFactory(service, BuildResolver());
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
@@ -104,12 +109,12 @@ public sealed class CreateMessageApiContractTests
                 subject = "Subject",
                 textBody = "Hello",
                 idempotencyKey = "body-key",
-                participants = Array.Empty<object>(),
-                actorType = "System",
-                actorId = "api"
+                participants = Array.Empty<object>()
             })
         };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", "header-key");
+        request.Headers.TryAddWithoutValidation("X-Debug-User", "admin@local.dev");
+        request.Headers.TryAddWithoutValidation("X-Debug-Role", "admin");
 
         var response = await client.SendAsync(request);
         var payload = await response.Content.ReadAsStringAsync();
@@ -122,7 +127,74 @@ public sealed class CreateMessageApiContractTests
                 StringComparison.Ordinal));
     }
 
-    private static Message BuildMessage(string idempotencyKey)
+    [Fact]
+    [Trait("Category", "Contract")]
+    public async Task Get_requires_viewer_policy()
+    {
+        var service = Substitute.For<IMessageApplicationService>();
+        service.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(BuildMessage(null));
+
+        await using var factory = new MessagingApiFactory(service, BuildResolver());
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/messages/{Guid.NewGuid()}");
+        request.Headers.TryAddWithoutValidation("X-Debug-User", "viewer@local.dev");
+        request.Headers.TryAddWithoutValidation("X-Debug-Role", "viewer");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Category", "Contract")]
+    public async Task Create_rejects_viewer_role()
+    {
+        var service = Substitute.For<IMessageApplicationService>();
+
+        await using var factory = new MessagingApiFactory(service, BuildResolver());
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
+        {
+            Content = JsonContent.Create(new
+            {
+                channel = "email",
+                contentSource = "Direct",
+                requiresApproval = false,
+                subject = "Subject",
+                textBody = "Hello",
+                participants = Array.Empty<object>()
+            })
+        };
+        request.Headers.TryAddWithoutValidation("X-Debug-User", "viewer@local.dev");
+        request.Headers.TryAddWithoutValidation("X-Debug-Role", "viewer");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static IUserResolver BuildResolver()
+    {
+        var resolver = Substitute.For<IUserResolver>();
+        resolver.ResolveAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var email = call.ArgAt<string>(2);
+                return new PlatformUserRecord(
+                    Guid.NewGuid(),
+                    call.ArgAt<string>(0),
+                    call.ArgAt<string>(1),
+                    email,
+                    call.ArgAt<string?>(3),
+                    "viewer",
+                    true);
+            });
+        return resolver;
+    }
+
+    private static Message BuildMessage(string? idempotencyKey)
     {
         return Message.CreateApproved(
             Guid.NewGuid(),
@@ -142,14 +214,17 @@ public sealed class CreateMessageApiContractTests
     private sealed class MessagingApiFactory : WebApplicationFactory<Program>
     {
         private readonly IMessageApplicationService _messageApplicationService;
+        private readonly IUserResolver _userResolver;
 
-        public MessagingApiFactory(IMessageApplicationService messageApplicationService)
+        public MessagingApiFactory(IMessageApplicationService messageApplicationService, IUserResolver userResolver)
         {
             _messageApplicationService = messageApplicationService;
+            _userResolver = userResolver;
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -161,7 +236,9 @@ public sealed class CreateMessageApiContractTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IMessageApplicationService>();
+                services.RemoveAll<IUserResolver>();
                 services.AddSingleton(_messageApplicationService);
+                services.AddSingleton(_userResolver);
             });
         }
     }

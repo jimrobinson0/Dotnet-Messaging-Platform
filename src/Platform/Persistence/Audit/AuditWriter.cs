@@ -18,6 +18,7 @@ public sealed class AuditWriter
                                        to_status,
                                        actor_type,
                                        actor_id,
+                                       actor_user_id,
                                        occurred_at,
                                        metadata_json
                                      )
@@ -29,6 +30,7 @@ public sealed class AuditWriter
                                        @ToStatus::message_status,
                                        @ActorType,
                                        @ActorId,
+                                       @ActorUserId,
                                        @OccurredAt,
                                        @MetadataJson::jsonb
                                      );
@@ -49,6 +51,7 @@ public sealed class AuditWriter
             ToStatus = auditEvent.ToStatus?.ToString(),
             auditEvent.ActorType,
             auditEvent.ActorId,
+            auditEvent.ActorUserId,
             auditEvent.OccurredAt,
             MetadataJson = auditEvent.MetadataJson?.GetRawText()
         };

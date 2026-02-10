@@ -112,3 +112,33 @@ The database is the source of truth for persisted timestamps:
 - Background workers / scheduling (future)
 - Channel-specific delivery implementations (future)
 - Template rendering engines (future)
+
+## Authentication & Authorization
+
+### Production Authentication
+
+- Uses JWT bearer authentication against Google OIDC (`https://accounts.google.com`).
+- Requires audience validation against `Authentication:Google:ClientId` (or `GOOGLE_CLIENT_ID`).
+- Normalizes external claims into internal identity claims (`auth_provider`, `auth_subject`, `email`, `display_name`).
+
+### Development Authentication
+
+- In `Development` only, `X-Debug-User` enables a debug authentication shim.
+- Optional `X-Debug-Role` can be used to test authorization policies without external IdP dependencies.
+- Outside `Development`, debug headers are ignored and JWT is required.
+
+### Platform-Owned Authorization
+
+- Platform authorization policies are enforced at endpoint boundaries:
+  - `Viewer`: read endpoints.
+  - `Approver`: approve/reject endpoints.
+  - `Admin`: full write access.
+- Role hierarchy is explicit (`admin > approver > viewer`) and owned by the platform, not Google claims.
+
+### User Resolution & Audit Attribution
+
+- Every authenticated request resolves `(auth_provider, auth_subject)` to `core.users`.
+- First login auto-provisions a `viewer` role user.
+- Subsequent logins update `email` and `display_name`.
+- `IUserContext` is populated per request and human-initiated audit events persist `actor_user_id`.
+- System/background-originated events remain valid with `actor_user_id = NULL`.

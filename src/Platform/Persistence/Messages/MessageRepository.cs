@@ -88,7 +88,8 @@ public sealed class MessageRepository
                 auditEvent.ActorType,
                 auditEvent.ActorId,
                 reviewResult.Transition.OccurredAt,
-                auditEvent.MetadataJson);
+                auditEvent.MetadataJson,
+                auditEvent.ActorUserId);
 
             await _auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
             await uow.CommitAsync(cancellationToken);

@@ -52,7 +52,8 @@ public sealed class PostgresFixture : IAsyncLifetime
                              message_audit_events,
                              message_reviews,
                              message_participants,
-                             messages
+                             messages,
+                             users
                            RESTART IDENTITY CASCADE;
                            """
             ;
