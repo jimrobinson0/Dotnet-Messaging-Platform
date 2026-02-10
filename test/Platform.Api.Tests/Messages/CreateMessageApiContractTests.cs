@@ -11,9 +11,10 @@ using NSubstitute;
 
 namespace Messaging.Platform.Api.Tests.Messages;
 
-public sealed class CreateMessageApiTests
+public sealed class CreateMessageApiContractTests
 {
     [Fact]
+    [Trait("Category", "Contract")]
     public async Task Create_uses_header_idempotency_key_and_returns_201_for_new_message()
     {
         var service = Substitute.For<IMessageApplicationService>();
@@ -51,6 +52,7 @@ public sealed class CreateMessageApiTests
     }
 
     [Fact]
+    [Trait("Category", "Contract")]
     public async Task Create_returns_200_for_replayed_request()
     {
         var service = Substitute.For<IMessageApplicationService>();
@@ -84,6 +86,7 @@ public sealed class CreateMessageApiTests
     }
 
     [Fact]
+    [Trait("Category", "Contract")]
     public async Task Create_returns_400_when_header_and_body_idempotency_keys_differ()
     {
         var service = Substitute.For<IMessageApplicationService>();
@@ -151,8 +154,7 @@ public sealed class CreateMessageApiTests
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:Messaging"] =
-                        "Host=localhost;Port=5432;Database=messaging_test;Username=postgres;Password=postgres"
+                    ["ConnectionStrings:Messaging"] = "FakeConnectionString"
                 });
             });
 
