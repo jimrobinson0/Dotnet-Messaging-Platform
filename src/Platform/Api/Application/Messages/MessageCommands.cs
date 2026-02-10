@@ -17,7 +17,8 @@ public sealed record CreateMessageCommand(
     string? IdempotencyKey,
     IReadOnlyList<MessageParticipantInput> Participants,
     string ActorType,
-    string ActorId);
+    string ActorId,
+    Guid? ActorUserId);
 
 public sealed record CreateMessageResult(
     Message Message,
@@ -32,5 +33,6 @@ public sealed record ReviewMessageCommand(
     string DecidedBy,
     string ActorType,
     string? ActorId,
+    Guid? ActorUserId,
     DateTimeOffset? DecidedAt,
     string? Notes);

@@ -1,13 +1,15 @@
 using Messaging.Platform.Api.Application.Messages;
+using Messaging.Platform.Api.Infrastructure.Auth;
 using Messaging.Platform.Core;
 
 namespace Messaging.Platform.Api.Contracts.Messages;
 
 public static class MessageContractMappings
 {
-    public static CreateMessageCommand ToCommand(this CreateMessageRequest request, string? idempotencyKey)
+    public static CreateMessageCommand ToCommand(this CreateMessageRequest request, string? idempotencyKey, IUserContext userContext)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(userContext);
 
         var participants = (request.Participants ?? Array.Empty<MessageParticipantRequest>())
             .Select(participant => new MessageParticipantInput(
@@ -29,18 +31,21 @@ public static class MessageContractMappings
             request.TemplateVariables,
             idempotencyKey,
             participants,
-            request.ActorType,
-            request.ActorId);
+            ActorType.Human.ToString(),
+            userContext.Email,
+            userContext.UserId);
     }
 
-    public static ReviewMessageCommand ToCommand(this ReviewMessageRequest request)
+    public static ReviewMessageCommand ToCommand(this ReviewMessageRequest request, IUserContext userContext)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(userContext);
 
         return new ReviewMessageCommand(
-            request.DecidedBy,
-            request.ActorType,
-            request.ActorId,
+            userContext.DisplayName ?? userContext.Email,
+            ActorType.Human.ToString(),
+            userContext.Email,
+            userContext.UserId,
             request.DecidedAt,
             request.Notes);
     }

@@ -13,7 +13,8 @@ public sealed class MessageAuditEvent
         string actorType,
         string actorId,
         DateTimeOffset occurredAt,
-        JsonElement? metadataJson)
+        JsonElement? metadataJson,
+        Guid? actorUserId = null)
     {
         ArgumentNullException.ThrowIfNull(eventType);
         ArgumentNullException.ThrowIfNull(actorType);
@@ -28,6 +29,7 @@ public sealed class MessageAuditEvent
         ActorId = actorId;
         OccurredAt = occurredAt;
         MetadataJson = JsonGuard.EnsureCloned(metadataJson, nameof(metadataJson));
+        ActorUserId = actorUserId;
     }
 
     public Guid Id { get; }
@@ -39,4 +41,5 @@ public sealed class MessageAuditEvent
     public string ActorId { get; }
     public DateTimeOffset OccurredAt { get; }
     public JsonElement? MetadataJson { get; }
+    public Guid? ActorUserId { get; }
 }

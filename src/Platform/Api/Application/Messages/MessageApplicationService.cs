@@ -70,7 +70,8 @@ public sealed class MessageApplicationService : IMessageApplicationService
             actorType.ToString(),
             actorId,
             occurredAt: DateTimeOffset.UtcNow,
-            metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
+            metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }),
+            actorUserId: command.ActorUserId);
 
         var result = await _messageRepository.CreateAsync(
             createIntent,
@@ -163,7 +164,8 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 {
                     decision = decision.ToString(),
                     command.Notes
-                }));
+                }),
+            command.ActorUserId);
 
         return await _messageRepository.ApplyReviewAsync(
             messageId,
