@@ -49,6 +49,7 @@ CREATE TYPE core.message_participant_role AS ENUM (
 
 CREATE TABLE core.messages (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key         TEXT NULL,
 
   -- routing
   channel                 VARCHAR NOT NULL,
@@ -91,6 +92,10 @@ CREATE TABLE core.messages (
       (content_source = 'Direct' AND template_key IS NULL)
     )
 );
+
+create unique index ux_messages_idempotency_key
+  on core.messages (idempotency_key)
+  where idempotency_key is not null;
 
 -- Indexes for core workflows
 CREATE INDEX idx_messages_status
