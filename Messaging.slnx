@@ -1,49 +1,26 @@
 <Solution>
-    <Folder Name="/src/"/>
-    <Folder Name="/src/Email/"/>
-    <Folder Name="/src/Email/Core/">
-        <Project Path="src/Email/Core/Messaging.Email.Core.csproj"/>
+    <Folder Name="/src/" />
+    <Folder Name="/src/Api/">
+        <Project Path="src/Api/Messaging.Api.csproj" />
     </Folder>
-    <Folder Name="/src/Email/Delivery/">
-        <Project Path="src/Email/Delivery/Messaging.Email.Delivery.csproj"/>
+    <Folder Name="/src/Core/">
+        <Project Path="src/Core/Messaging.Core.csproj" />
     </Folder>
-    <Folder Name="/src/Email/Queue/">
-        <Project Path="src/Email/Queue/Messaging.Email.Queue.csproj"/>
+    <Folder Name="/src/Persistence/">
+        <Project Path="src/Persistence/Messaging.Persistence.csproj" />
     </Folder>
-    <Folder Name="/src/Email/Review/">
-        <Project Path="src/Email/Review/Messaging.Email.Review.csproj"/>
+    <Folder Name="/src/Workers/">
+        <Project Path="src/Workers/Messaging.Workers.csproj" />
     </Folder>
-    <Folder Name="/src/Email/Templates/">
-        <Project Path="src/Email/Templates/Messaging.Email.Templates.csproj"/>
+
+    <Folder Name="/test/" />
+    <Folder Name="/test/Api.Tests/">
+        <Project Path="test/Api.Tests/Messaging.Api.Tests.csproj" />
     </Folder>
-    <Folder Name="/src/Platform/"/>
-    <Folder Name="/src/Platform/Api/">
-        <Project Path="src/Platform/Api/Messaging.Platform.Api.csproj"/>
+    <Folder Name="/test/Core.Tests/">
+        <Project Path="test/Core.Tests/Messaging.Core.Tests.csproj" />
     </Folder>
-    <Folder Name="/src/Platform/Core/">
-        <Project Path="src/Platform/Core/Messaging.Platform.Core.csproj"/>
-    </Folder>
-    <Folder Name="/src/Platform/Persistence/">
-        <Project Path="src/Platform/Persistence/Messaging.Platform.Persistence.csproj"/>
-    </Folder>
-    <Folder Name="/src/Workers/"/>
-    <Folder Name="/src/Workers/EmailDelivery/">
-        <Project Path="src/Workers/EmailDelivery/Messaging.Workers.EmailDelivery.csproj"/>
-    </Folder>
-    <Folder Name="/test/"/>
-    <Folder Name="/test/Email.Queue.Tests/">
-        <Project Path="test/Email.Queue.Tests/Messaging.Email.Queue.Tests.csproj"/>
-    </Folder>
-    <Folder Name="/test/Email.Review.Tests/">
-        <Project Path="test/Email.Review.Tests/Messaging.Email.Review.Tests.csproj"/>
-    </Folder>
-    <Folder Name="/test/Platform.Api.Tests/">
-        <Project Path="test/Platform.Api.Tests/Messaging.Platform.Api.Tests.csproj"/>
-    </Folder>
-    <Folder Name="/test/Platform.Core.Tests/">
-        <Project Path="test/Platform.Core.Tests/Messaging.Platform.Core.Tests.csproj"/>
-    </Folder>
-    <Folder Name="/test/Platform.Persistence.Tests/">
-        <Project Path="test/Platform.Persistence.Tests/Messaging.Platform.Persistence.Tests.csproj"/>
+    <Folder Name="/test/Persistence.Tests/">
+        <Project Path="test/Persistence.Tests/Messaging.Persistence.Tests.csproj" />
     </Folder>
 </Solution>

@@ -18,7 +18,7 @@ When reviewing code or providing suggestions, act as a **Staff Systems Architect
 
 ## 🏗️ The "Messaging" Architectural Layers
 
-### 1. Platform.Core (The Domain)
+### 1. Messaging.Core (The Domain)
 
 - **GoF Patterns:** Strategy, State, and Command patterns live here.
 - **SOLID (D):** Core is the high-level module and must not depend on Persistence or API.
@@ -28,7 +28,7 @@ When reviewing code or providing suggestions, act as a **Staff Systems Architect
 
 ---
 
-### 2. Platform.Persistence (The Gateway)
+### 2. Messaging.Persistence (The Gateway)
 
 - **GoF Patterns:** Data Mapper / Repository.
 - **Explicit SQL:** Dapper + PostgreSQL only. No heavy ORMs.
@@ -39,7 +39,7 @@ When reviewing code or providing suggestions, act as a **Staff Systems Architect
 
 ---
 
-### 3. Platform.Api (The Orchestrator)
+### 3. Messaging.Api (The Orchestrator)
 
 - **GoF Patterns:** Facade.
 - **Thinness:** Controllers orchestrate only. If there is business logic, lifecycle branching, or SQL here, it is a bug.

@@ -1,6 +1,8 @@
+---
+
 # Messaging
 
-Messaging is an open-source, infrastructure-focused **messaging control plane** designed to reliably queue, review, deliver, and observe outbound messages.
+Messaging is an open-source, infrastructure-focused **email messaging control plane** designed to reliably queue, review, deliver, and observe outbound messages.
 
 The system is intentionally pragmatic:
 
@@ -17,17 +19,17 @@ It is **not** an ESP replacement and does not attempt to be one.
 
 Messaging provides:
 
-* A **platform layer** for:
+* A hardened **domain layer** for:
 
   * human approval workflows
-  * queue visibility and observability
+  * lifecycle enforcement
   * audit history
-* **Pluggable channels** (starting with Email)
-* **Worker-based delivery** with explicit retries and backoff
-* **Channel-specific templating**
-* A **single UI control plane** for humans
+* A SQL-first persistence layer
+* Worker-based delivery with explicit retries and state transitions
+* Idempotent enqueue semantics
+* A single HTTP API surface for orchestration
 
-Think of it as the part *between* your application and an external provider where reliability, intent, and accountability live.
+Think of it as the part *between* your application and your email provider where reliability, intent, and accountability live.
 
 ---
 
@@ -39,6 +41,7 @@ Messaging intentionally does **not** provide:
 * Campaign builders
 * Marketing automation
 * Tracking pixels or analytics dashboards
+* Multi-channel orchestration (SMS, push, etc.)
 * Provider lock-in or proprietary formats
 
 If you need a full ESP, this project is probably not what you're looking for.
@@ -49,22 +52,11 @@ If you need a full ESP, this project is probably not what you're looking for.
 
 ```
 Messaging
-├─ Platform
-│  ├─ Core        # channel-agnostic domain model & lifecycle rules
-│  ├─ Persistence # SQL-first data access & rehydration (Dapper)
-│  └─ Api         # thin HTTP orchestration layer (no SQL, no business rules)
-│
-├─ Email          # pluggable channel
-│  ├─ Core
-│  ├─ Templates
-│  ├─ Queue
-│  ├─ Review
-│  └─ Delivery
-│
-├─ Workers
-│  └─ EmailDelivery
-│
-└─ ui             # React-based control plane (not .NET)
+├─ Api          # thin HTTP orchestration layer
+├─ Core         # domain model & lifecycle rules
+├─ Persistence  # SQL-first data access & rehydration (Dapper)
+├─ Workers      # background delivery processing
+└─ ui           # React-based control plane (not .NET)
 ```
 
 ---
@@ -76,45 +68,111 @@ Messaging
 * **UI never owns business logic**
 * **API never owns business logic**
 * **Persistence is explicit and SQL-first**
-* **Platform knows *about* channels, not *how* they work**
+* **Lifecycle rules live only in Core**
 * **Delivery failures are observable, not silent**
+* **The database is the source of truth**
+
+---
+
+## Project Structure & Responsibilities
+
+### Messaging.Core
+
+Owns:
+
+* Lifecycle state machine
+* Domain invariants
+* Aggregate behavior
+* Approval semantics
+* State transition rules
+
+Contains:
+
+* No SQL
+* No HTTP
+* No infrastructure concerns
+
+Core decides *what is allowed*, not *how it is stored*.
+
+---
+
+### Messaging.Persistence
+
+Owns:
+
+* All SQL
+* All transactions
+* Concurrency control
+* Rehydration of Core aggregates
+* Dapper + PostgreSQL integration
+
+Contains:
+
+* No lifecycle rules
+* No business decisions
+
+Persistence reflects Core — it does not interpret it.
+
+---
+
+### Messaging.Api
+
+Owns:
+
+* HTTP endpoints
+* Request validation
+* Idempotency enforcement
+* Orchestration between Core and Persistence
+
+Contains:
+
+* No SQL
+* No lifecycle logic
+
+The API is intentionally thin.
+
+---
+
+### Messaging.Workers
+
+Owns:
+
+* Claiming eligible messages
+* Transitioning `Approved → Sending → Sent/Failed`
+* Delivery retry mechanics
+* Transport integration (SMTP / provider)
+
+Workers never:
+
+* Approve messages
+* Bypass lifecycle rules
+* Mutate frozen content
+
+---
+
+## Dependency Rules (Non-Negotiable)
+
+```
+Messaging.Api → Messaging.Persistence → Messaging.Core
+Messaging.Workers → Messaging.Persistence → Messaging.Core
+```
+
+Core has no dependencies.
+
+Persistence depends only on Core.
+
+API and Workers orchestrate.
 
 ---
 
 ## Persistence Model (Important)
 
-Messaging follows a strict separation of concerns:
-
-* **Platform.Core**
-
-  * owns **all business logic, lifecycle rules, and invariants**
-  * contains **no SQL, no HTTP, no persistence logic**
-
-* **Platform.Persistence**
-
-  * owns **all SQL, transactions, concurrency, and rehydration**
-  * uses **Dapper + PostgreSQL**
-  * rehydrates Core aggregates
-  * contains **no business or lifecycle logic**
-
-* **Platform.Api**
-
-  * is **thin orchestration only**
-  * calls Core for decisions
-  * calls Persistence for storage
-  * contains **no SQL**
-
-Dependency rule (non-negotiable):
-
-```
-Platform.Api → Platform.Persistence → Platform.Core
-```
-
-The database is the authoritative source of truth for:
+The database is authoritative for:
 
 * `created_at`
-* default timestamps
 * persisted lifecycle state
+* concurrency fields
+* claim ownership fields
 
 Explicit rules:
 
@@ -127,9 +185,10 @@ Explicit rules:
 
 ## Lifecycle Source of Truth
 
-* **Platform.Core enums are authoritative**
-* Legacy enum states documented elsewhere are invalid
-* Persistence aligns strictly to Core lifecycle definitions
+* `Messaging.Core` enums are authoritative
+* Persistence must align strictly with Core lifecycle definitions
+* Workers must respect allowed transition rules
+* Approval does not mutate content
 
 ---
 
@@ -142,7 +201,6 @@ Message creation supports an optional idempotency key to make client retries saf
 * If both are present and differ, API returns `400 Bad Request`
 * Same key replay returns the original message (`200 OK`) without creating new rows
 * New key (or no key) behaves as normal create (`201 Created`)
-* Current scope is global across all messages until tenant/client scoping is introduced
 
 Client guidance:
 
@@ -167,16 +225,17 @@ Messaging is in early development.
 
 What exists today:
 
-* Project structure with explicit boundaries
+* Explicit solution structure
 * Hardened Core lifecycle and approval model
-* SQL-first persistence layer (in progress)
-* Email-first channel design
+* SQL-first persistence layer
+* Idempotent enqueue semantics
+* Worker scaffolding
 
 What does not exist yet:
 
-* Production-ready APIs
-* UI implementation
-* Provider integrations
+* Production-ready UI
+* Production-hardened delivery integrations
+* Observability dashboards
 
 Expect breaking changes while foundations are finalized.
 
@@ -184,7 +243,7 @@ Expect breaking changes while foundations are finalized.
 
 ## Who This Is For
 
-* Engineers who need reliable outbound messaging
+* Engineers who need reliable outbound email
 * Teams that require **human review** before sending
 * Operators who value inspectability over magic
 * OSS contributors who appreciate clarity and restraint
@@ -195,12 +254,11 @@ Expect breaking changes while foundations are finalized.
 
 Contributions are welcome.
 
-Before opening a PR, please:
+Before opening a PR:
 
-1. Read `AGENTS.md`
-2. Keep changes scoped and explicit
-3. Prefer clarity over abstraction
-4. Avoid adding features that broaden scope without discussion
+1. Keep changes scoped and explicit
+2. Prefer clarity over abstraction
+3. Avoid broadening scope without discussion
 
 If you’re unsure whether something belongs, open an issue first.
 
@@ -216,3 +274,5 @@ MIT (expected — subject to final confirmation)
 
 Messaging is maintained by the original author(s) and open-source contributors.
 Organizational affiliation is intentionally de-emphasized to keep the project neutral and approachable.
+
+---
