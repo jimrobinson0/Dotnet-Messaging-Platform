@@ -115,9 +115,13 @@ public sealed class CreateMessageApiContractTests
 
         var response = await client.SendAsync(request);
         var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement;
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Idempotency key mismatch", payload, StringComparison.Ordinal);
+        Assert.Equal("Invalid request", root.GetProperty("title").GetString());
+        Assert.Equal("IDEMPOTENCY_KEY_MISMATCH", root.GetProperty("code").GetString());
+        Assert.Contains("Idempotency key mismatch", root.GetProperty("detail").GetString(), StringComparison.Ordinal);
         Assert.DoesNotContain(
             service.ReceivedCalls(),
             call => string.Equals(call.GetMethodInfo().Name, nameof(IMessageApplicationService.CreateAsync),
@@ -149,7 +153,7 @@ public sealed class CreateMessageApiContractTests
                 ["requiresApproval"] = false,
                 ["subject"] = "Subject",
                 ["textBody"] = "Hello",
-                ["reply_to_message_id"] = replyToMessageId,
+                ["replyToMessageId"] = replyToMessageId,
                 ["participants"] = Array.Empty<object>(),
                 ["actorType"] = "System",
                 ["actorId"] = "api"
@@ -187,7 +191,7 @@ public sealed class CreateMessageApiContractTests
                 requiresApproval = false,
                 subject = "Subject",
                 textBody = "Hello",
-                reply_to_message_id = replyToMessageId,
+                replyToMessageId = replyToMessageId,
                 participants = Array.Empty<object>(),
                 actorType = "System",
                 actorId = "api"

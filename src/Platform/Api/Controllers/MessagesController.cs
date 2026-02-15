@@ -1,5 +1,6 @@
 using Messaging.Platform.Api.Application.Messages;
 using Messaging.Platform.Api.Contracts.Messages;
+using Messaging.Platform.Core.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Messaging.Platform.Api.Controllers;
@@ -105,7 +106,8 @@ public sealed class MessagesController : ControllerBase
         if (normalizedHeader is not null &&
             normalizedBody is not null &&
             !string.Equals(normalizedHeader, normalizedBody, StringComparison.Ordinal))
-            throw new ArgumentException(
+            throw new MessageValidationException(
+                "IDEMPOTENCY_KEY_MISMATCH",
                 "Idempotency key mismatch: header 'Idempotency-Key' and body 'idempotencyKey' must match when both are provided.");
 
         return normalizedHeader ?? normalizedBody;

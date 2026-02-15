@@ -6,6 +6,12 @@ namespace Messaging.Platform.Persistence.Messages;
 
 internal static class MessageMapper
 {
+    public static Message RehydrateMessage(MessageRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return RehydrateMessage(row, Array.Empty<MessageParticipantRow>());
+    }
+
     public static Message RehydrateMessage(
         MessageRow row,
         IReadOnlyList<MessageParticipantRow> participantRows)
@@ -40,7 +46,7 @@ internal static class MessageMapper
             row.Subject,
             row.TextBody,
             row.HtmlBody,
-            ParseJson(row.TemplateVariablesJson),
+            ParseJson(row.TemplateVariablesJson ?? row.TemplateVariables),
             row.IdempotencyKey,
             row.ReplyToMessageId,
             row.InReplyTo,
@@ -108,6 +114,7 @@ internal sealed class MessageRow
     public string? TextBody { get; set; }
     public string? HtmlBody { get; set; }
     public string? TemplateVariablesJson { get; set; }
+    public string? TemplateVariables { get; set; }
     public string? IdempotencyKey { get; set; }
     public Guid? ReplyToMessageId { get; set; }
     public string? InReplyTo { get; set; }

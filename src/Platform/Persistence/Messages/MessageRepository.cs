@@ -1,16 +1,67 @@
 using System.Data.Common;
+using Dapper;
 using Messaging.Platform.Core;
 using Messaging.Platform.Core.Exceptions;
 using Messaging.Platform.Persistence.Audit;
 using Messaging.Platform.Persistence.Db;
+using Messaging.Platform.Persistence.Exceptions;
 using Messaging.Platform.Persistence.Participants;
 using Messaging.Platform.Persistence.Reviews;
+using Npgsql;
 
 namespace Messaging.Platform.Persistence.Messages;
 
 public sealed class MessageRepository
 {
     private const string InvalidReplyTargetErrorCode = "INVALID_REPLY_TARGET";
+    internal const string ClaimNextApprovedSql = """
+                                                 with cte as (
+                                                     select id
+                                                     from core.messages
+                                                     where status::text = 'Approved'
+                                                     order by created_at, id
+                                                     for update skip locked
+                                                     limit 1
+                                                 ),
+                                                 claimed as (
+                                                     update core.messages m
+                                                     set
+                                                       -- attempt_count is incremented during actual delivery attempts by workers.
+                                                       -- Claiming a message does not represent a delivery attempt.
+                                                       status = 'Sending',
+                                                       claimed_by = @WorkerId,
+                                                       claimed_at = now(),
+                                                       updated_at = now()
+                                                     from cte
+                                                     where m.id = cte.id
+                                                     returning m.*
+                                                 )
+                                                 select
+                                                   c.id as Id,
+                                                   c.channel as Channel,
+                                                   c.status::text as Status,
+                                                   c.content_source::text as ContentSource,
+                                                   c.created_at as CreatedAt,
+                                                   c.updated_at as UpdatedAt,
+                                                   c.claimed_by as ClaimedBy,
+                                                   c.claimed_at as ClaimedAt,
+                                                   c.sent_at as SentAt,
+                                                   c.failure_reason as FailureReason,
+                                                   c.attempt_count as AttemptCount,
+                                                   c.template_key as TemplateKey,
+                                                   c.template_version as TemplateVersion,
+                                                   c.template_resolved_at as TemplateResolvedAt,
+                                                   c.subject as Subject,
+                                                   c.text_body as TextBody,
+                                                   c.html_body as HtmlBody,
+                                                   c.template_variables::text as TemplateVariablesJson,
+                                                   c.idempotency_key as IdempotencyKey,
+                                                   c.reply_to_message_id as ReplyToMessageId,
+                                                   c.in_reply_to as InReplyTo,
+                                                   c.references_header as ReferencesHeader,
+                                                   c.smtp_message_id as SmtpMessageId
+                                                 from claimed c;
+                                                 """;
 
     private readonly AuditWriter _auditWriter;
     private readonly DbConnectionFactory _connectionFactory;
@@ -148,6 +199,38 @@ public sealed class MessageRepository
         }
 
         return await GetByIdAsync(messageId, cancellationToken);
+    }
+
+    public async Task<Message?> ClaimNextApprovedAsync(
+        string workerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(workerId))
+            throw new ArgumentException("Worker id cannot be null or whitespace.", nameof(workerId));
+
+        await using var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken);
+
+        try
+        {
+            var row = await uow.Connection.QuerySingleOrDefaultAsync<MessageRow>(
+                ClaimNextApprovedSql,
+                new { WorkerId = workerId },
+                uow.Transaction);
+
+            if (row is null)
+            {
+                await uow.CommitAsync(cancellationToken);
+                return null;
+            }
+
+            var message = MessageMapper.RehydrateMessage(row);
+            await uow.CommitAsync(cancellationToken);
+            return message;
+        }
+        catch (NpgsqlException ex)
+        {
+            throw new PersistenceException("Failed to claim next approved message.", ex);
+        }
     }
 
     public async Task<Message> GetByIdAsync(
