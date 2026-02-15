@@ -7,8 +7,6 @@ namespace Messaging.Api.Application.Messages;
 
 public sealed class MessageApplicationService : IMessageApplicationService
 {
-    private const int MaxListLimit = 500;
-
     private readonly MessageRepository _messageRepository;
 
     public MessageApplicationService(
@@ -56,7 +54,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 command.IdempotencyKey,
                 participants);
 
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, command.RequiresApproval) with
         {
             ReplyToMessageId = command.ReplyToMessageId
         };
@@ -119,20 +117,6 @@ public sealed class MessageApplicationService : IMessageApplicationService
         CancellationToken cancellationToken = default)
     {
         return await _messageRepository.GetByIdAsync(messageId, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<Message>> ListAsync(
-        string? status,
-        int limit,
-        DateTimeOffset? createdAfter,
-        CancellationToken cancellationToken = default)
-    {
-        var parsedStatus = ParseOptionalStatus(status);
-
-        if (limit <= 0 || limit > MaxListLimit)
-            throw new ArgumentOutOfRangeException(nameof(limit), $"Limit must be between 1 and {MaxListLimit}.");
-
-        return await _messageRepository.ListAsync(parsedStatus, limit, createdAfter, cancellationToken);
     }
 
     private async Task<Message> ApplyReviewAsync(
@@ -227,17 +211,6 @@ public sealed class MessageApplicationService : IMessageApplicationService
     private static ActorType ParseActorType(string raw)
     {
         return ActorType.Parse(RequireValue(raw, nameof(raw)));
-    }
-
-    private static MessageStatus? ParseOptionalStatus(string? status)
-    {
-        if (string.IsNullOrWhiteSpace(status)) return null;
-
-        if (Enum.TryParse<MessageStatus>(status, true, out var parsed)) return parsed;
-
-        throw new ArgumentException(
-            $"Unknown status value '{status}'.",
-            nameof(status));
     }
 
     private static string RequireValue(string? value, string parameterName)

@@ -16,14 +16,16 @@ builder.Services.AddHealthChecks();
 
 var connectionString = ResolveConnectionString(builder.Configuration);
 
-builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
+builder.Services.AddSingleton<DbConnectionFactory>(_ => new DbConnectionFactory(connectionString));
 builder.Services.AddScoped<MessageReader>();
 builder.Services.AddScoped<MessageWriter>();
 builder.Services.AddScoped<ParticipantWriter>();
 builder.Services.AddScoped<ReviewWriter>();
 builder.Services.AddScoped<AuditWriter>();
 builder.Services.AddScoped<MessageRepository>();
+builder.Services.AddScoped<IMessageReadRepository, MessageReadRepository>();
 builder.Services.AddScoped<IMessageApplicationService, MessageApplicationService>();
+builder.Services.AddScoped<IMessageQueryService, MessageQueryService>();
 
 var app = builder.Build();
 

@@ -71,9 +71,10 @@ The database is the source of truth for persisted timestamps:
 
 ### List Messages (Observability)
 
-- `GET /messages?status={optional}`
-- If `status` is omitted, API returns messages across all statuses.
-- If `status` is provided, API filters to that status.
+- `GET /messages`
+- Supports pagination (`page`, `pageSize`) and summary output (`PagedResultResponse<MessageSummaryResponse>`).
+- Supports filters: `status[]`, `channel`, `createdFrom`/`createdTo`, `sentFrom`/`sentTo`, `requiresApproval`.
+- To prevent unbounded scans, at least one of `status`, `createdFrom`/`createdTo`, or `sentFrom`/`sentTo` is required.
 - Listing is read-only and observability-oriented.
 - Actionability is separate from visibility: terminal and non-actionable messages are still listable.
 

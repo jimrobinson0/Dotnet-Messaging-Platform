@@ -35,7 +35,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             var participantWriter = new ParticipantWriter();
             var auditWriter = new AuditWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                 uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -97,7 +97,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, false),
                 uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -136,7 +136,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                 uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -178,7 +178,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                 uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -211,7 +211,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+            insertResult = await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                 uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -257,7 +257,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             firstInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -266,7 +266,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -282,7 +282,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from messages where idempotency_key = @Key",
+            "select count(1) from core.messages where idempotency_key = @Key",
             new { Key = key });
 
         Assert.Equal(1, messageCount);
@@ -332,7 +332,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             firstInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -341,7 +341,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -357,7 +357,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.QuerySingleAsync<(string Channel, string? Subject, string? TextBody, string? HtmlBody)>(
                 """
                 select channel as Channel, subject as Subject, text_body as TextBody, html_body as HtmlBody
-                from messages
+                from core.messages
                 where id = @MessageId
                 """,
                 new { firstInsert.MessageId });
@@ -386,7 +386,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             firstInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -395,7 +395,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -408,7 +408,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from messages where id = any(@Ids)",
+            "select count(1) from core.messages where id = any(@Ids)",
             new { Ids = new[] { firstInsert.MessageId, secondInsert.MessageId } });
 
         Assert.Equal(2, messageCount);
@@ -444,7 +444,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
                 await using var uow = await UnitOfWork.BeginAsync(connectionFactory);
                 var result =
-                    await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                    await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, false),
                         uow.Transaction);
                 await uow.CommitAsync();
                 return result;
@@ -460,7 +460,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from messages where idempotency_key = @Key",
+            "select count(1) from core.messages where idempotency_key = @Key",
             new { Key = key });
 
         Assert.Equal(1, messageCount);
@@ -478,7 +478,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         var firstMessageId = Guid.NewGuid();
         var firstMessage = TestData.CreatePendingApprovalMessage(firstMessageId, key);
         var firstResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage, true),
             ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -489,7 +489,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         var secondMessageId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondMessageId, key);
         var secondResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage, true),
             ParticipantPrototypeMapper.FromCore(secondMessage.Participants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -505,7 +505,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from messages where idempotency_key = @Key",
+            "select count(1) from core.messages where idempotency_key = @Key",
             new { Key = key });
 
         var participantCount = await connection.QuerySingleAsync<int>(
@@ -547,7 +547,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             firstParticipants);
 
         var firstResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
             ParticipantPrototypeMapper.FromCore(firstParticipants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -572,7 +572,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             secondParticipants);
 
         var replayResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage, false),
             ParticipantPrototypeMapper.FromCore(secondParticipants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -606,7 +606,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         var firstId = Guid.NewGuid();
         var firstMessage = TestData.CreatePendingApprovalMessage(firstId);
         var firstResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+            MessageCreateIntentMapper.ToCreateIntent(firstMessage, true),
             ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -617,7 +617,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         var secondId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondId);
         var secondResult = await repository.CreateAsync(
-            MessageCreateIntentMapper.ToCreateIntent(secondMessage),
+            MessageCreateIntentMapper.ToCreateIntent(secondMessage, true),
             ParticipantPrototypeMapper.FromCore(secondMessage.Participants),
             persistedMessageId => TestData.CreateAuditEvent(
                 persistedMessageId,
@@ -632,7 +632,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
         await connection.OpenAsync();
 
-        var messageCount = await connection.QuerySingleAsync<int>("select count(1) from messages");
+        var messageCount = await connection.QuerySingleAsync<int>("select count(1) from core.messages");
         Assert.Equal(2, messageCount);
     }
 
@@ -665,7 +665,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                     participants);
 
                 return await repository.CreateAsync(
-                    MessageCreateIntentMapper.ToCreateIntent(message),
+                    MessageCreateIntentMapper.ToCreateIntent(message, false),
                     ParticipantPrototypeMapper.FromCore(participants),
                     persistedMessageId => TestData.CreateAuditEvent(
                         persistedMessageId,
@@ -687,7 +687,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from messages where idempotency_key = @Key",
+            "select count(1) from core.messages where idempotency_key = @Key",
             new { Key = key });
 
         var participantCount = await connection.QuerySingleAsync<int>(
@@ -733,7 +733,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
         {
             ReplyToMessageId = replyTargetId
         };
@@ -756,7 +756,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id as ReplyToMessageId,
               in_reply_to as InReplyTo,
               references_header as ReferencesHeader
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = result.Message.Id });
@@ -811,7 +811,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
         {
             ReplyToMessageId = replyTargetId
         };
@@ -833,7 +833,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             select
               in_reply_to as InReplyTo,
               references_header as ReferencesHeader
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = result.Message.Id });
@@ -851,7 +851,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         var repository = CreateRepository();
         var message = TestData.CreateApprovedMessage(Guid.NewGuid());
         var replyTargetId = Guid.NewGuid();
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
         {
             ReplyToMessageId = replyTargetId
         };
@@ -869,7 +869,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
-        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from core.messages");
         Assert.Equal(0, messageCount);
     }
 
@@ -898,7 +898,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
         {
             ReplyToMessageId = replyTargetId
         };
@@ -916,7 +916,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
-        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from core.messages");
         Assert.Equal(1, messageCount);
     }
 
@@ -945,7 +945,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
         {
             ReplyToMessageId = replyTargetId
         };
@@ -963,7 +963,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
-        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from core.messages");
         Assert.Equal(1, messageCount);
     }
 
@@ -1045,7 +1045,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id as ReplyToMessageId,
               in_reply_to as InReplyTo,
               references_header as ReferencesHeader
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = messageId });
@@ -1090,7 +1090,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage) with
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false) with
         {
             ReplyToMessageId = replyTargetAId
         };
@@ -1119,7 +1119,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             idempotencyKey,
             TestData.CreateParticipants(replayMessageId));
 
-        var replayIntent = MessageCreateIntentMapper.ToCreateIntent(replayMessage) with
+        var replayIntent = MessageCreateIntentMapper.ToCreateIntent(replayMessage, false) with
         {
             ReplyToMessageId = replyTargetBId
         };
@@ -1145,7 +1145,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id as ReplyToMessageId,
               in_reply_to as InReplyTo,
               references_header as ReferencesHeader
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = firstResult.Message.Id });
@@ -1189,7 +1189,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         }
 
         var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage) with
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false) with
         {
             ReplyToMessageId = replyTargetAId
         };
@@ -1204,7 +1204,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                 "MessageCreated"));
 
         var secondMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var secondIntent = MessageCreateIntentMapper.ToCreateIntent(secondMessage) with
+        var secondIntent = MessageCreateIntentMapper.ToCreateIntent(secondMessage, false) with
         {
             ReplyToMessageId = replyTargetBId
         };
@@ -1230,7 +1230,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id as ReplyToMessageId,
               in_reply_to as InReplyTo,
               references_header as ReferencesHeader
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = firstResult.Message.Id });

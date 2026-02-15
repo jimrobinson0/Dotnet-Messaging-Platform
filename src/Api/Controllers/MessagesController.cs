@@ -1,4 +1,5 @@
 using Messaging.Api.Application.Messages;
+using Messaging.Api.Contracts;
 using Messaging.Api.Contracts.Messages;
 using Messaging.Core.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,14 @@ public sealed class MessagesController : ControllerBase
     private const string IdempotencyKeyHeaderName = "Idempotency-Key";
 
     private readonly IMessageApplicationService _messageApplicationService;
+    private readonly IMessageQueryService _messageQueryService;
 
-    public MessagesController(IMessageApplicationService messageApplicationService)
+    public MessagesController(
+        IMessageApplicationService messageApplicationService,
+        IMessageQueryService messageQueryService)
     {
         _messageApplicationService = messageApplicationService;
+        _messageQueryService = messageQueryService;
     }
 
     [HttpPost]
@@ -84,18 +89,16 @@ public sealed class MessagesController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<MessageResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResultResponse<MessageSummaryResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IReadOnlyList<MessageResponse>>> List(
-        [FromQuery] string? status,
-        [FromQuery] int limit = 50,
-        [FromQuery] DateTimeOffset? createdAfter = null,
-        CancellationToken cancellationToken = default)
+    // NOTE: This endpoint is the canonical and only list surface.
+    // No backward-compatible overloads will be introduced.
+    public async Task<ActionResult<PagedResultResponse<MessageSummaryResponse>>> List(
+        [FromQuery] ListMessagesQuery query,
+        CancellationToken cancellationToken)
     {
-        var messages = await _messageApplicationService.ListAsync(status, limit, createdAfter, cancellationToken);
-        var response = messages.Select(message => message.ToResponse()).ToArray();
-
-        return Ok(response);
+        var result = await _messageQueryService.ListAsync(query, cancellationToken);
+        return Ok(result.ToResponse());
     }
 
     private static string? ResolveIdempotencyKey(string? headerKey, string? bodyKey)

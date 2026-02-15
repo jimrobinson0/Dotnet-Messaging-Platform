@@ -70,7 +70,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         var newestStatus = await verifyConnection.QuerySingleAsync<string>(
             """
             select status::text
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = newestApprovedId });
@@ -112,7 +112,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
         var sendingCount = await verifyConnection.QuerySingleAsync<int>(
-            "select count(1) from messages where status = 'Sending'");
+            "select count(1) from core.messages where status = 'Sending'");
 
         Assert.Equal(0, sendingCount);
     }
@@ -234,7 +234,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             select
               status::text as Status,
               claimed_by as ClaimedBy
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = messageId });
@@ -279,7 +279,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         var attemptCount = await verifyConnection.QuerySingleAsync<int>(
             """
             select attempt_count
-            from messages
+            from core.messages
             where id = @MessageId
             """,
             new { MessageId = messageId });
@@ -303,7 +303,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             firstInsert = await messageWriter.InsertIdempotentAsync(
-                MessageCreateIntentMapper.ToCreateIntent(firstMessage),
+                MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
                 uow.Transaction);
             await uow.CommitAsync();
         }
@@ -320,7 +320,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             replayInsert = await messageWriter.InsertIdempotentAsync(
-                MessageCreateIntentMapper.ToCreateIntent(replayMessage),
+                MessageCreateIntentMapper.ToCreateIntent(replayMessage, true),
                 uow.Transaction);
             await uow.CommitAsync();
         }

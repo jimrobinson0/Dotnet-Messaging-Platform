@@ -15,13 +15,13 @@ public sealed class MessageWriter
     // - WasCreated is true iff a new row was inserted
     // - SQL is authoritative; C# must not attempt replay lookup or repair
     internal const string InsertIdempotentSql = @"
-        insert into messages (
-        channel, status, content_source, template_key, template_version,
+        insert into core.messages (
+        channel, status, requires_approval, content_source, template_key, template_version,
         template_resolved_at, subject, text_body, html_body,
         template_variables, idempotency_key, reply_to_message_id, in_reply_to, references_header
         )
         values (
-        @Channel, @Status::message_status, @ContentSource::message_content_source,
+        @Channel, @Status::core.message_status, @RequiresApproval, @ContentSource::message_content_source,
         @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
         @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey,
         @ReplyToMessageId, @InReplyTo, @ReferencesHeader
@@ -37,9 +37,9 @@ public sealed class MessageWriter
         ";
 
     private const string UpdateSql = """
-                                     update messages
+                                     update core.messages
                                      set
-                                       status = @Status::message_status,
+                                       status = @Status::core.message_status,
                                        updated_at = now(),
                                        claimed_by = @ClaimedBy,
                                        claimed_at = @ClaimedAt,
@@ -127,6 +127,7 @@ public sealed class MessageWriter
         {
             createIntent.Channel,
             Status = createIntent.Status.ToString(),
+            createIntent.RequiresApproval,
             ContentSource = createIntent.ContentSource.ToString(),
             createIntent.TemplateKey,
             createIntent.TemplateVersion,

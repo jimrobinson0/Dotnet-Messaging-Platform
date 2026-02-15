@@ -13,7 +13,4 @@ public interface IMessageApplicationService
         CancellationToken cancellationToken = default);
 
     Task<Message> GetByIdAsync(Guid messageId, CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<Message>> ListAsync(string? status, int limit, DateTimeOffset? createdAfter,
-        CancellationToken cancellationToken = default);
 }

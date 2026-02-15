@@ -32,7 +32,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
             // Insert parent message to satisfy FK constraint.
             var message = TestData.CreatePendingApprovalMessage(messageId);
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -75,7 +75,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -123,7 +123,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -169,7 +169,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
         {
             var message = TestData.CreatePendingApprovalMessage(messageId);
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);

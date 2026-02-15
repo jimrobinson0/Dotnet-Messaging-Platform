@@ -15,14 +15,14 @@ public sealed class MessageRepository
 {
     private const string InvalidReplyTargetErrorCode = "INVALID_REPLY_TARGET";
     internal const string ClaimNextApprovedSql = """
-                                                 with cte as (
-                                                     select id
-                                                     from core.messages
-                                                     where status::text = 'Approved'
-                                                     order by created_at, id
-                                                     for update skip locked
-                                                     limit 1
-                                                 ),
+                                                     with cte as (
+                                                         select id
+                                                         from core.messages
+                                                     where status = 'Approved'::core.message_status
+                                                         order by created_at, id
+                                                         for update skip locked
+                                                         limit 1
+                                                     ),
                                                  claimed as (
                                                      update core.messages m
                                                      set
@@ -34,12 +34,12 @@ public sealed class MessageRepository
                                                        updated_at = now()
                                                      from cte
                                                      where m.id = cte.id
-                                                     returning m.*
+                                                    returning m.*
                                                  )
                                                  select
                                                    c.id as Id,
                                                    c.channel as Channel,
-                                                   c.status::text as Status,
+                                                   c.status as Status,
                                                    c.content_source::text as ContentSource,
                                                    c.created_at as CreatedAt,
                                                    c.updated_at as UpdatedAt,
@@ -241,13 +241,4 @@ public sealed class MessageRepository
         return await _messageReader.GetByIdAsync(messageId, connection, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Message>> ListAsync(
-        MessageStatus? status,
-        int limit,
-        DateTimeOffset? createdAfter,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken);
-        return await _messageReader.ListAsync(status, limit, createdAfter, connection, cancellationToken);
-    }
 }

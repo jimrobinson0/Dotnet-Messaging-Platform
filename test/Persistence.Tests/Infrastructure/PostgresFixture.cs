@@ -40,10 +40,10 @@ public sealed class PostgresFixture : IAsyncLifetime
         await conn.OpenAsync(cancellationToken);
 
         // Defensive: ensure schema exists even if something went sideways earlier
-        await conn.ExecuteAsync("CREATE SCHEMA IF NOT EXISTS core;", cancellationToken);
-
-        // Tests intentionally operate within the core schema
-        await conn.ExecuteAsync("SET search_path TO core;", cancellationToken);
+        await conn.ExecuteAsync(
+            new CommandDefinition(
+                "CREATE SCHEMA IF NOT EXISTS core;",
+                cancellationToken: cancellationToken));
 
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
@@ -83,7 +83,10 @@ public sealed class PostgresFixture : IAsyncLifetime
 
             if (string.IsNullOrWhiteSpace(sql)) continue;
 
-            await conn.ExecuteAsync(sql, cancellationToken);
+            await conn.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    cancellationToken: cancellationToken));
         }
     }
 }

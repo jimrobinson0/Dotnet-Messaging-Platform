@@ -33,7 +33,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -86,7 +86,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -138,7 +138,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -178,7 +178,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var insertResult =
-                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message),
+                await messageWriter.InsertIdempotentAsync(MessageCreateIntentMapper.ToCreateIntent(message, true),
                     uow.Transaction);
             Assert.True(insertResult.WasCreated);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);

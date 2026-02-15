@@ -1,0 +1,15 @@
+using Messaging.Core;
+
+namespace Messaging.Api.Application.Messages;
+
+public sealed class MessageSummary
+{
+    public Guid Id { get; init; }
+    public string Channel { get; init; } = string.Empty;
+    public MessageStatus Status { get; init; }
+    public bool RequiresApproval { get; init; }
+    public string? Subject { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? SentAt { get; init; }
+    public string? FailureReason { get; init; }
+}

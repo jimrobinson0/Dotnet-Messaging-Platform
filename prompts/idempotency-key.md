@@ -124,7 +124,7 @@ Then in code:
 1. Execute insert; if it returns an `id`, you created it.
 2. If it returns **no rows** (conflict):
 
-   * `select id from messages where idempotency_key = @IdempotencyKey;`
+   * `select id from core.messages where idempotency_key = @IdempotencyKey;`
    * load and return the full message (and participants) by id
 
 **Important:** don’t do a second insert; don’t change status; don’t touch participants on replay.

@@ -19,7 +19,6 @@ internal static class MessageMapper
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(participantRows);
 
-        var status = ParseEnum<MessageStatus>(row.Status, "message_status");
         var contentSource = ParseEnum<MessageContentSource>(row.ContentSource, "message_content_source");
 
         var participants = participantRows.Count == 0
@@ -31,7 +30,7 @@ internal static class MessageMapper
         return new Message(
             row.Id,
             row.Channel,
-            status,
+            row.Status,
             contentSource,
             row.CreatedAt,
             row.UpdatedAt,
@@ -98,7 +97,7 @@ internal sealed class MessageRow
 {
     public Guid Id { get; set; }
     public string Channel { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public MessageStatus Status { get; set; }
     public string ContentSource { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

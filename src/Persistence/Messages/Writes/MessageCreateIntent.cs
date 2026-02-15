@@ -6,6 +6,7 @@ namespace Messaging.Persistence.Messages;
 public sealed record MessageCreateIntent(
     string Channel,
     MessageStatus Status,
+    bool RequiresApproval,
     MessageContentSource ContentSource,
     string? TemplateKey,
     string? TemplateVersion,

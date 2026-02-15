@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Messaging.Api.Application;
 using Messaging.Core.Exceptions;
 using Messaging.Persistence.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,10 @@ public sealed class ApiExceptionMappingMiddleware
         {
             await _next(context);
         }
+        catch (BadRequestException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
+        }
         catch (InvalidMessageStatusTransitionException ex)
         {
             await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Invalid Transition", ex.Message);
@@ -40,13 +45,13 @@ public sealed class ApiExceptionMappingMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status404NotFound, "Not Found", ex.Message);
         }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
-        }
         catch (MessageValidationException ex)
         {
             await WriteValidationErrorAsync(context, ex.Code, ex.Message);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
         }
         catch (InvalidOperationException ex)
         {

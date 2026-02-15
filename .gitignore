@@ -39,6 +39,8 @@ ScaffoldingReadMe.txt
 *.log
 *.sqlite
 *.db
+diff*.txt
+*.zip
 
 # Coverage and test results
 coverage/

@@ -1,87 +1,215 @@
-# AGENTS.md (Enhanced for Staff-Level Review)
+# 🧼 Early-Phase Simplicity Mandate (Critical)
 
-This file documents the *intentional boundaries* and *architectural philosophy* of the Messaging project.
+Messaging is in its **earliest development phase**.
 
-If you are an AI agent, automated tool, or human contributor, **read this before making changes**.
+There are:
 
----
+* No external consumers
+* No production clients
+* No backward compatibility guarantees
+* No versioning constraints
+* No migration burden beyond internal refactors
 
-## 🎭 Persona & Intellectual Framework
-
-When reviewing code or providing suggestions, act as a **Staff Systems Architect** and a **Founding Member of the "Gang of Four."** Your feedback must prioritize:
-
-- **Design over Implementation:** Favor robust structural integrity over "clever" one-liners.
-- **Composition over Inheritance:** Avoid rigid class hierarchies.
-- **Encapsulation of Variation:** Identify what is likely to change and hide it behind an interface or abstraction.
+This has architectural consequences.
 
 ---
 
-## 🏗️ The "Messaging" Architectural Layers
+## 🚫 Absolutely Prohibited
 
-### 1. Messaging.Core (The Domain)
+When implementing new features, patches, or review-driven revisions, AI agents and contributors must NOT:
 
-- **GoF Patterns:** Strategy, State, and Command patterns live here.
-- **SOLID (D):** Core is the high-level module and must not depend on Persistence or API.
-- **Invariants:** All business rules are enforced here. Lifecycle transitions are validated only by Core.
-- **Primitive Obsession (Guided):** Prefer Value Objects (e.g., `MessageId`, `ChannelType`) once behavior or invariants exist. Early-stage routing or metadata may remain primitive if explicitly documented and bounded.
-- **No Side Effects on Rehydration:** Loading an aggregate must never trigger external actions.
+* Add backward compatibility shims
+* Add dual-path logic (old + new behavior)
+* Introduce nullable fallbacks solely to preserve hypothetical legacy flows
+* Add compatibility DTOs
+* Preserve deprecated property names
+* Introduce feature flags for non-existent consumers
+* Create temporary adapter layers
+* Add defensive branching for prior contract shapes
+* Preserve dead code “just in case”
+* Introduce v1/v2 branching logic
+* Add transitional states to lifecycle models
+* Add schema compatibility layers
+* Preserve unused parameters
+* Add optional overloads solely to avoid breaking changes
+* Implement compatibility migrations unless explicitly requested
 
----
+If a change improves correctness or clarity, **replace the old design outright**.
 
-### 2. Messaging.Persistence (The Gateway)
-
-- **GoF Patterns:** Data Mapper / Repository.
-- **Explicit SQL:** Dapper + PostgreSQL only. No heavy ORMs.
-- **SOLID (S):** Persistence moves data between the DB and Core aggregates; it does not decide behavior.
-- **Transaction Ownership:** Persistence owns transactions and row locking.
-- **Timestamp Ownership:** PostgreSQL is authoritative for persisted timestamps (`created_at`, `updated_at`). Persistence may use `now()`; aggregates may be stale post-write until rehydrated.
-- **Testing Philosophy:** Persistence tests are **integration tests by design** (Testcontainers + real Postgres). Do not replace with mocks.
-
----
-
-### 3. Messaging.Api (The Orchestrator)
-
-- **GoF Patterns:** Facade.
-- **Thinness:** Controllers orchestrate only. If there is business logic, lifecycle branching, or SQL here, it is a bug.
-- **Dependency Direction:** `Api → Persistence → Core`.
-- **DTO Boundary:** API DTOs are not Core entities. Map explicitly.
-- **Error Mapping:** Translate domain/persistence exceptions to HTTP semantics without swallowing them.
+Do not preserve incorrect structure for imaginary clients.
 
 ---
 
-## 🛡️ Critical Review Heuristics (Staff-Level Checks)
+## 🔥 Required Bias: Replace, Don’t Accommodate
 
-### 1. SOLID Filter
+If a feature review identifies:
 
-- **Single Responsibility:** Is a class orchestrating *and* calculating?
-- **Open/Closed:** Can we add a new channel or actor by adding code rather than modifying many files?
-- **Interface Segregation:** Avoid forcing consumers to depend on unused methods.
+* A flawed abstraction
+* A leaky boundary
+* An unnecessary parameter
+* An incorrect lifecycle rule
+* A naming mistake
+* A contract inconsistency
 
-### 2. Structural Integrity
+The correct action is:
 
-- **Temporal Coupling:** Are call-order dependencies enforced by types/state?
-- **Hidden Side Effects:** Rehydration must be side-effect free.
-- **Leakage:** Infrastructure concerns (SQL, HTTP, Npgsql) must not leak into Core.
+> Delete or refactor the old implementation.
 
-### 3. Concurrency & Correctness
+Not:
 
-- **Idempotency:** Can operations be safely retried?
-- **Atomic State:** Message status, reviews, and audit events must persist atomically.
-- **Locking:** Concurrency protection must be enforced at the Persistence boundary.
-
----
-
-## 🚫 Architectural Non-Goals & Red Flags
-
-- **Magic over Explicit:** No auto-mapping frameworks unless strictly justified.
-- **Framework Creep:** ASP.NET Core idioms must not bleed into Core.
-- **Helper Anti-pattern:** Avoid `Utils`/`Common` classes. Name the domain concept instead.
+> Add compatibility handling.
 
 ---
 
-## 🤖 AI Execution Instructions
+## 🧠 Design Authority Rule
 
-1. **Identify the Layer:** Determine whether the change is in Core, Persistence, or API.
-2. **Check Boundaries:** Enforce `Api → Persistence → Core`. No exceptions.
-3. **Assess Cost of Change:** Will this code be hard to delete or refactor in two years?
-4. **Output Format:** Provide a **Staff Review** followed by **Actionable Suggestions**. Use GoF terminology where applicable.
+The canonical project context defines:
+
+* Lifecycle invariants
+* Dependency rules
+* Persistence ownership
+* Architectural scope
+* Explicit non-goals
+
+If proposed compatibility logic conflicts with the canonical design, the canonical design wins.
+
+Never bend the architecture to preserve temporary code.
+
+---
+
+## ✂ Clean Refactor Preference
+
+In this phase:
+
+* Breaking internal APIs is acceptable.
+* Renaming properties is acceptable.
+* Removing parameters is acceptable.
+* Rewriting persistence SQL is acceptable.
+* Reworking DTOs is acceptable.
+
+As long as:
+
+* Architectural boundaries remain intact
+* Lifecycle invariants remain correct
+* Tests are updated accordingly
+
+---
+
+## 🧪 Test Alignment Rule
+
+Tests must evolve with the design.
+
+Do NOT:
+
+* Preserve old test expectations for compatibility.
+* Add conditional assertions for legacy behavior.
+* Maintain dual test paths.
+
+If behavior changes intentionally, tests must be rewritten to reflect the new truth.
+
+---
+
+## 🏗 Schema Evolution Rule
+
+Migrations should:
+
+* Represent the clean, intended schema.
+* Not preserve obsolete columns unless explicitly required.
+* Remove mistaken columns if necessary.
+
+This is pre-production. Optimize for clarity over continuity.
+
+---
+
+## 🚨 Compatibility Is Not a Decision Variable
+
+Messaging is pre-consumer and pre-production.
+
+AI agents and contributors must **never evaluate backward compatibility as a tradeoff dimension**.
+
+There are:
+
+* No external contracts to preserve
+* No public API guarantees
+* No client upgrade paths
+* No semantic versioning obligations
+* No legacy integrations
+
+Therefore:
+
+* Compatibility is not a factor.
+* Migration cost is not a factor.
+* External breakage is not a factor.
+
+These variables do not exist in this phase.
+
+---
+
+## 🧠 Refactor Default
+
+When revising behavior, contracts, schema, or lifecycle logic:
+
+* Replace the old structure.
+* Update all call sites.
+* Update tests.
+* Update migrations if necessary.
+
+Do not:
+
+* Introduce conditional branching for old behavior.
+* Maintain dual representations.
+* Add temporary adapters.
+* Preserve deprecated shapes.
+
+The only acceptable state is the clean, current design.
+
+---
+
+## 🎯 Governing Rule
+
+If a change makes the system:
+
+* Simpler
+* More correct
+* More aligned with canonical context
+* More explicit
+* Easier to reason about
+
+Then the old implementation must be removed.
+
+Not preserved.
+
+---
+
+## 🎯 Overarching Principle
+
+This project values:
+
+* Structural clarity
+* Determinism
+* Explicitness
+* Domain integrity
+* Delete-ability
+
+Over:
+
+* Stability for hypothetical users
+* Defensive compatibility
+* Incremental patch layering
+
+---
+
+## 🧨 Enforcement Clause for AI Agents
+
+When generating or revising code:
+
+* Do not preserve superseded structures.
+* Do not introduce compatibility indirection.
+* Do not widen contracts unless explicitly required.
+* Prefer surgical deletion over additive layering.
+
+If in doubt:
+
+Choose the simpler, cleaner architecture and remove the older design.
+
+---

@@ -14,7 +14,7 @@ public sealed class MessageWriterGuardrailTests
 
         // Exactly one insert
         Assert.Single(
-            Regex.Matches(sql, @"insert\s+into\s+messages", RegexOptions.IgnoreCase));
+            Regex.Matches(sql, @"insert\s+into\s+core\.messages", RegexOptions.IgnoreCase));
 
         // Concurrency-safe idempotency
         Assert.Matches(@"on\s+conflict\s+\(idempotency_key\)", sql);
@@ -65,7 +65,7 @@ public sealed class MessageWriterGuardrailTests
     {
         var match = Regex.Match(
             insertSql,
-            "insert\\s+into\\s+messages\\s*\\((?<columns>[\\s\\S]*?)\\)\\s*values",
+            "insert\\s+into\\s+core\\.messages\\s*\\((?<columns>[\\s\\S]*?)\\)\\s*values",
             RegexOptions.IgnoreCase);
 
         Assert.True(match.Success, "Could not locate insert column list in InsertIdempotentSql.");
