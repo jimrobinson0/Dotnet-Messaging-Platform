@@ -21,7 +21,7 @@ public sealed class MessageWriter
         template_variables, idempotency_key, reply_to_message_id, in_reply_to, references_header
         )
         values (
-        @Channel, @Status::core.message_status, @RequiresApproval, @ContentSource::message_content_source,
+        @Channel, @Status::core.message_status, @RequiresApproval, @ContentSource::core.message_content_source,
         @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
         @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey,
         @ReplyToMessageId, @InReplyTo, @ReferencesHeader

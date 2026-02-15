@@ -41,8 +41,8 @@ public sealed class MessageClaimTests : PostgresTestBase
                 )
                 values
                   (@PendingId, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body', @PendingCreatedAt, @PendingCreatedAt),
-                  (@OldestApprovedId, 'email', 'Approved', 'Direct', 'Oldest', 'Body', @OldestApprovedCreatedAt, @OldestApprovedCreatedAt),
-                  (@NewestApprovedId, 'email', 'Approved', 'Direct', 'Newest', 'Body', @NewestApprovedCreatedAt, @NewestApprovedCreatedAt);
+                  (@OldestApprovedId, 'email', 'Approved'::core.message_status, 'Direct', 'Oldest', 'Body', @OldestApprovedCreatedAt, @OldestApprovedCreatedAt),
+                  (@NewestApprovedId, 'email', 'Approved'::core.message_status, 'Direct', 'Newest', 'Body', @NewestApprovedCreatedAt, @NewestApprovedCreatedAt);
                 """,
                 new
                 {
@@ -94,8 +94,8 @@ public sealed class MessageClaimTests : PostgresTestBase
                 insert into core.messages (id, channel, status, content_source, subject, text_body)
                 values
                   (@PendingId, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body'),
-                  (@FailedId, 'email', 'Failed', 'Direct', 'Failed', 'Body'),
-                  (@RejectedId, 'email', 'Rejected', 'Direct', 'Rejected', 'Body');
+                  (@FailedId, 'email', 'Failed'::core.message_status, 'Direct', 'Failed', 'Body'),
+                  (@RejectedId, 'email', 'Rejected'::core.message_status, 'Direct', 'Rejected', 'Body');
                 """,
                 new
                 {
@@ -112,7 +112,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
         var sendingCount = await verifyConnection.QuerySingleAsync<int>(
-            "select count(1) from core.messages where status = 'Sending'");
+            "select count(1) from core.messages where status = 'Sending'::core.message_status");
 
         Assert.Equal(0, sendingCount);
     }
@@ -137,8 +137,8 @@ public sealed class MessageClaimTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, created_at, updated_at
                 )
                 values
-                  (@FirstId, 'email', 'Approved', 'Direct', 'First', 'Body', @CreatedAt, @CreatedAt),
-                  (@SecondId, 'email', 'Approved', 'Direct', 'Second', 'Body', @CreatedAt, @CreatedAt);
+                  (@FirstId, 'email', 'Approved'::core.message_status, 'Direct', 'First', 'Body', @CreatedAt, @CreatedAt),
+                  (@SecondId, 'email', 'Approved'::core.message_status, 'Direct', 'Second', 'Body', @CreatedAt, @CreatedAt);
                 """,
                 new
                 {
@@ -172,7 +172,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (id, channel, status, content_source, subject, text_body)
-                values (@MessageId, 'email', 'Approved', 'Direct', 'Approved', 'Body');
+                values (@MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
                 """,
                 new { MessageId = approvedMessageId });
         }
@@ -199,7 +199,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (id, channel, status, content_source, subject, text_body)
-                values (@MessageId, 'email', 'Approved', 'Direct', 'Approved', 'Body');
+                values (@MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
                 """,
                 new { MessageId = messageId });
         }
@@ -261,7 +261,7 @@ public sealed class MessageClaimTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, attempt_count
                 )
                 values (
-                  @MessageId, 'email', 'Approved', 'Direct', 'Approved', 'Body', 2
+                  @MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body', 2
                 );
                 """,
                 new { MessageId = messageId });

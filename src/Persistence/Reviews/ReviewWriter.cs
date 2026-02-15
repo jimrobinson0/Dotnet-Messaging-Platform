@@ -10,7 +10,7 @@ namespace Messaging.Persistence.Reviews;
 public sealed class ReviewWriter
 {
     private const string InsertSql = """
-                                     insert into message_reviews (
+                                     insert into core.message_reviews (
                                        id,
                                        message_id,
                                        decision,
@@ -21,7 +21,7 @@ public sealed class ReviewWriter
                                      values (
                                        @Id,
                                        @MessageId,
-                                       @Decision::review_decision,
+                                       @Decision::core.review_decision,
                                        @DecidedBy,
                                        @DecidedAt,
                                        @Notes

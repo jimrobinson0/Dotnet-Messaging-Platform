@@ -10,7 +10,7 @@ namespace Messaging.Persistence.Participants;
 public sealed class ParticipantWriter
 {
     private const string InsertSql = """
-                                     insert into message_participants (
+                                     insert into core.message_participants (
                                        id,
                                        message_id,
                                        role,
@@ -20,7 +20,7 @@ public sealed class ParticipantWriter
                                      values (
                                        @Id,
                                        @MessageId,
-                                       @Role::message_participant_role,
+                                       @Role::core.message_participant_role,
                                        @Address,
                                        @DisplayName
                                      );

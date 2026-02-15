@@ -722,7 +722,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, smtp_message_id, references_header
                 )
                 values (
-                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', @SmtpMessageId, null
+                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @SmtpMessageId, null
                 );
                 """,
                 new
@@ -788,7 +788,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @RootId, 'email', 'Sent', 'Direct', 'Root', 'Body', @RootSmtpMessageId
+                  @RootId, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
                 );
 
                 insert into core.messages (
@@ -796,7 +796,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                   in_reply_to, smtp_message_id, references_header
                 )
                 values (
-                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', @RootId,
+                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @RootId,
                   @RootSmtpMessageId, @SmtpMessageId, @ReferencesHeader
                 );
                 """,
@@ -891,7 +891,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @Id, 'email', 'Approved', 'Direct', 'Original', 'Body', '<approved@example.test>'
+                  @Id, 'email', 'Approved'::core.message_status, 'Direct', 'Original', 'Body', '<approved@example.test>'
                 );
                 """,
                 new { Id = replyTargetId });
@@ -938,7 +938,7 @@ public sealed class MessageInsertTests : PostgresTestBase
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', null
+                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', null
                 );
                 """,
                 new { Id = replyTargetId });
@@ -985,7 +985,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               id, channel, status, content_source, subject, text_body, smtp_message_id
             )
             values (
-              @RootMessageId, 'email', 'Sent', 'Direct', 'Root', 'Body', @RootSmtpMessageId
+              @RootMessageId, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
             );
             """,
             new
@@ -1001,7 +1001,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id, in_reply_to, references_header
             )
             values (
-              @ReplyMessageId, 'email', 'Approved', 'Direct', 'Reply', 'Body',
+              @ReplyMessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Reply', 'Body',
               @RootMessageId, @RootSmtpMessageId, null
             );
             """,
@@ -1032,7 +1032,7 @@ public sealed class MessageInsertTests : PostgresTestBase
               reply_to_message_id, in_reply_to, references_header
             )
             values (
-              @MessageId, 'email', 'Approved', 'Direct', 'Root', 'Body',
+              @MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Root', 'Body',
               null, null, null
             );
             """,
@@ -1075,10 +1075,10 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+                values (@ReplyTargetAId, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
                 insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                values (@ReplyTargetBId, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new
                 {
@@ -1174,10 +1174,10 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+                values (@ReplyTargetAId, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
                 insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                values (@ReplyTargetBId, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new
                 {

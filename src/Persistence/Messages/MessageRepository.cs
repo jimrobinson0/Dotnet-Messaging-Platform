@@ -28,7 +28,7 @@ public sealed class MessageRepository
                                                      set
                                                        -- attempt_count is incremented during actual delivery attempts by workers.
                                                        -- Claiming a message does not represent a delivery attempt.
-                                                       status = 'Sending',
+                                                       status = 'Sending'::core.message_status,
                                                        claimed_by = @WorkerId,
                                                        claimed_at = now(),
                                                        updated_at = now()
