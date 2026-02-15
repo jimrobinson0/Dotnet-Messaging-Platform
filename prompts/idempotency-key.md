@@ -100,7 +100,7 @@ Use one of these patterns (pick A unless you already standardized on another app
 **Pseudo-SQL:**
 
 ```sql
-insert into messages (
+insert into core.messages (
   channel, status, content_source,
   template_key, template_version, template_resolved_at,
   template_variables,

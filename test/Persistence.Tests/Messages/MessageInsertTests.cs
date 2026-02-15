@@ -509,11 +509,11 @@ public sealed class MessageInsertTests : PostgresTestBase
             new { Key = key });
 
         var participantCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from message_participants where message_id = @MessageId",
+            "select count(1) from core.message_participants where message_id = @MessageId",
             new { MessageId = firstResult.Message.Id });
 
         var auditCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from message_audit_events where message_id = @MessageId",
+            "select count(1) from core.message_audit_events where message_id = @MessageId",
             new { MessageId = firstResult.Message.Id });
 
         Assert.Equal(1, messageCount);
@@ -589,7 +589,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
 
         var participantCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from message_participants where message_id = @MessageId",
+            "select count(1) from core.message_participants where message_id = @MessageId",
             new { MessageId = firstResult.Message.Id });
 
         Assert.Equal(firstParticipants.Count, participantCount);
@@ -691,11 +691,11 @@ public sealed class MessageInsertTests : PostgresTestBase
             new { Key = key });
 
         var participantCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from message_participants where message_id = @MessageId",
+            "select count(1) from core.message_participants where message_id = @MessageId",
             new { MessageId = distinctMessageIds[0] });
 
         var auditCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from message_audit_events where message_id = @MessageId",
+            "select count(1) from core.message_audit_events where message_id = @MessageId",
             new { MessageId = distinctMessageIds[0] });
 
         Assert.Equal(1, messageCount);
@@ -718,7 +718,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, smtp_message_id, references_header
                 )
                 values (
@@ -784,14 +784,14 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
                   @RootId, 'email', 'Sent', 'Direct', 'Root', 'Body', @RootSmtpMessageId
                 );
 
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, reply_to_message_id,
                   in_reply_to, smtp_message_id, references_header
                 )
@@ -887,7 +887,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
@@ -934,7 +934,7 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
@@ -981,7 +981,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await connection.ExecuteAsync(
             """
-            insert into messages (
+            insert into core.messages (
               id, channel, status, content_source, subject, text_body, smtp_message_id
             )
             values (
@@ -996,7 +996,7 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
             """
-            insert into messages (
+            insert into core.messages (
               id, channel, status, content_source, subject, text_body,
               reply_to_message_id, in_reply_to, references_header
             )
@@ -1027,7 +1027,7 @@ public sealed class MessageInsertTests : PostgresTestBase
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             """
-            insert into messages (
+            insert into core.messages (
               id, channel, status, content_source, subject, text_body,
               reply_to_message_id, in_reply_to, references_header
             )
@@ -1074,10 +1074,10 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
                 values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
-                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
                 values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new
@@ -1173,10 +1173,10 @@ public sealed class MessageInsertTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
                 values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
-                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
                 values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new

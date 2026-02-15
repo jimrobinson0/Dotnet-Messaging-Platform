@@ -43,7 +43,7 @@ public sealed class MessageReader
                                                   p.address as Address,
                                                   p.display_name as DisplayName,
                                                   p.created_at as CreatedAt
-                                                from message_participants p
+                                                from core.message_participants p
                                                 where p.message_id = @MessageId
                                                 order by p.created_at
                                                 """;

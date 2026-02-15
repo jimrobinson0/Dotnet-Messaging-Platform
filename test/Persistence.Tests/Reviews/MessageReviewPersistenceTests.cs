@@ -54,7 +54,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
             var row = await uow.Connection.QuerySingleAsync<dynamic>(
                 """
                 select decision::text as Decision, decided_by as DecidedBy, notes as Notes
-                from message_reviews
+                from core.message_reviews
                 where message_id = @MessageId
                 """,
                 new { MessageId = persistedMessageId },
@@ -107,7 +107,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
             var row = await uow.Connection.QuerySingleAsync<dynamic>(
                 """
                 select decision::text as Decision, notes as Notes
-                from message_reviews
+                from core.message_reviews
                 where message_id = @MessageId
                 """,
                 new { MessageId = persistedMessageId },
@@ -203,7 +203,7 @@ public sealed class MessageReviewPersistenceTests : PostgresTestBase
             await reviewWriter.InsertAsync(review, uow.Transaction);
 
             var notes = await uow.Connection.QuerySingleAsync<string?>(
-                "select notes from message_reviews where message_id = @MessageId",
+                "select notes from core.message_reviews where message_id = @MessageId",
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 

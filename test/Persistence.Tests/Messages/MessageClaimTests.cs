@@ -36,7 +36,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, created_at, updated_at
                 )
                 values
@@ -91,7 +91,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (id, channel, status, content_source, subject, text_body)
+                insert into core.messages (id, channel, status, content_source, subject, text_body)
                 values
                   (@PendingId, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body'),
                   (@FailedId, 'email', 'Failed', 'Direct', 'Failed', 'Body'),
@@ -133,7 +133,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, created_at, updated_at
                 )
                 values
@@ -171,7 +171,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (id, channel, status, content_source, subject, text_body)
+                insert into core.messages (id, channel, status, content_source, subject, text_body)
                 values (@MessageId, 'email', 'Approved', 'Direct', 'Approved', 'Body');
                 """,
                 new { MessageId = approvedMessageId });
@@ -198,7 +198,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (id, channel, status, content_source, subject, text_body)
+                insert into core.messages (id, channel, status, content_source, subject, text_body)
                 values (@MessageId, 'email', 'Approved', 'Direct', 'Approved', 'Body');
                 """,
                 new { MessageId = messageId });
@@ -257,7 +257,7 @@ public sealed class MessageClaimTests : PostgresTestBase
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into messages (
+                insert into core.messages (
                   id, channel, status, content_source, subject, text_body, attempt_count
                 )
                 values (

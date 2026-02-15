@@ -280,7 +280,7 @@ public sealed class MessageReadRepositoryTests : PostgresTestBase
         await connection.OpenAsync();
 
         const string sql = """
-                           insert into messages (
+                           insert into core.messages (
                              id,
                              channel,
                              status,

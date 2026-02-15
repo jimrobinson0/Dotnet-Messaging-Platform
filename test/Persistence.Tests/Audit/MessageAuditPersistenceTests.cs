@@ -48,7 +48,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
 
             // Validate row exists via direct query (tests persistence contract).
             var count = await uow.Connection.QuerySingleAsync<int>(
-                "select count(1) from message_audit_events where message_id = @MessageId",
+                "select count(1) from core.message_audit_events where message_id = @MessageId",
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
@@ -92,7 +92,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
             var row = await uow.Connection.QuerySingleAsync<dynamic>(
                 """
                 select from_status::text as FromStatus, to_status::text as ToStatus
-                from message_audit_events
+                from core.message_audit_events
                 where message_id = @MessageId
                 """,
                 new { MessageId = persistedMessageId },
@@ -139,7 +139,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
             await auditWriter.InsertAsync(evt, uow.Transaction);
 
             var raw = await uow.Connection.QuerySingleAsync<string>(
-                "select metadata_json::text from message_audit_events where message_id = @MessageId",
+                "select metadata_json::text from core.message_audit_events where message_id = @MessageId",
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
@@ -190,7 +190,7 @@ public sealed class MessageAuditPersistenceTests : PostgresTestBase
                 uow.Transaction);
 
             var count = await uow.Connection.QuerySingleAsync<int>(
-                "select count(1) from message_audit_events where message_id = @MessageId",
+                "select count(1) from core.message_audit_events where message_id = @MessageId",
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
