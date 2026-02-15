@@ -116,8 +116,45 @@ Migrations should:
 * Represent the clean, intended schema.
 * Not preserve obsolete columns unless explicitly required.
 * Remove mistaken columns if necessary.
+* Fully qualify all database objects using the `.core` schema.
 
 This is pre-production. Optimize for clarity over continuity.
+
+---
+
+# 🧱 Mandatory Schema Qualification Rule (Critical)
+
+All database objects must reside in the `core` schema.
+
+AI agents and contributors must:
+
+* Always reference tables as `core.messages`
+* Always reference tables as `core.message_participants`
+* Always reference tables as `core.message_reviews`
+* Always reference tables as `core.message_audit_events`
+* Always schema-qualify foreign keys
+* Always schema-qualify indexes
+* Always schema-qualify constraints
+* Always schema-qualify sequences
+* Always schema-qualify joins
+* Always schema-qualify `INSERT`, `UPDATE`, `DELETE`, and `SELECT` statements
+* Always schema-qualify references inside CTEs
+* Always schema-qualify `ON CONFLICT` targets
+* Always schema-qualify trigger bindings (if introduced)
+* Never rely on `search_path`
+
+Forbidden:
+
+* Unqualified table names (e.g., `messages`)
+* Mixed qualified and unqualified usage
+* Assumptions about default schema resolution
+* Migration scripts without explicit `core.` prefixes
+
+All SQL must be deterministic and explicit.
+
+If existing SQL omits `core.`, it must be rewritten.
+
+There is no backward compatibility constraint preventing this correction.
 
 ---
 
@@ -153,6 +190,7 @@ When revising behavior, contracts, schema, or lifecycle logic:
 * Update all call sites.
 * Update tests.
 * Update migrations if necessary.
+* Ensure all SQL references `core.` schema explicitly.
 
 Do not:
 
@@ -190,6 +228,7 @@ This project values:
 * Explicitness
 * Domain integrity
 * Delete-ability
+* Explicit schema ownership
 
 Over:
 
@@ -207,9 +246,8 @@ When generating or revising code:
 * Do not introduce compatibility indirection.
 * Do not widen contracts unless explicitly required.
 * Prefer surgical deletion over additive layering.
+* Always schema-qualify SQL with `core.`.
 
 If in doubt:
 
 Choose the simpler, cleaner architecture and remove the older design.
-
----

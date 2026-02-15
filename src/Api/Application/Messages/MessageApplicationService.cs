@@ -73,7 +73,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
             occurredAt: DateTimeOffset.UtcNow,
             metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
-        var result = await _messageRepository.CreateAsync(
+        MessageCreateResult result = await _messageRepository.CreateAsync(
             createIntent,
             participantPrototypes,
             auditEventFactory,

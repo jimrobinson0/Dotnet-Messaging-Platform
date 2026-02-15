@@ -40,7 +40,7 @@ public sealed class MessagesController : ControllerBase
                 nameof(idempotencyKeyHeader));
 
         var idempotencyKey = ResolveIdempotencyKey(idempotencyKeyHeader, request.IdempotencyKey);
-        var createResult =
+        CreateMessageResult createResult =
             await _messageApplicationService.CreateAsync(request.ToCommand(idempotencyKey), cancellationToken);
         var response = createResult.Message.ToResponse();
 
