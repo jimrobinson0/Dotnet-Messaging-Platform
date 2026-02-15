@@ -6,9 +6,9 @@ namespace Messaging.Platform.Api.Contracts.Messages;
 
 public sealed class CreateMessageRequest
 {
-    [Required] [MaxLength(50)] public string Channel { get; init; } = string.Empty;
+    [Required][MaxLength(50)] public string Channel { get; init; } = string.Empty;
 
-    [Required] [MaxLength(50)] public string ContentSource { get; init; } = string.Empty;
+    [Required][MaxLength(50)] public string ContentSource { get; init; } = string.Empty;
 
     public bool RequiresApproval { get; init; }
 
@@ -33,7 +33,7 @@ public sealed class CreateMessageRequest
     public IReadOnlyList<MessageParticipantRequest> Participants { get; init; } =
         Array.Empty<MessageParticipantRequest>();
 
-    [Required] [MaxLength(50)] public string ActorType { get; init; } = "System";
+    [Required][MaxLength(50)] public string ActorType { get; init; } = "System";
 
-    [Required] [MaxLength(255)] public string ActorId { get; init; } = "api";
+    [Required][MaxLength(255)] public string ActorId { get; init; } = "api";
 }
