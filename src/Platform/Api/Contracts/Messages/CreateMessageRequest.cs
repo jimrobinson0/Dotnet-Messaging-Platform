@@ -28,7 +28,6 @@ public sealed class CreateMessageRequest
 
     [MaxLength(128)] public string? IdempotencyKey { get; init; }
 
-    [JsonPropertyName("reply_to_message_id")]
     public Guid? ReplyToMessageId { get; init; }
 
     public IReadOnlyList<MessageParticipantRequest> Participants { get; init; } =
