@@ -44,9 +44,9 @@ public sealed class ApiExceptionMappingMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
         }
-        catch (ArgumentException ex)
+        catch (MessageValidationException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
+            await WriteValidationErrorAsync(context, ex.Code, ex.Message);
         }
         catch (InvalidOperationException ex)
         {
@@ -94,6 +94,26 @@ public sealed class ApiExceptionMappingMiddleware
             Detail = detail
         };
 
+        await context.Response.WriteAsJsonAsync(problem);
+    }
+
+    private static async Task WriteValidationErrorAsync(
+        HttpContext context,
+        string code,
+        string message)
+    {
+        if (context.Response.HasStarted) return;
+
+        var problem = new ValidationProblemDetails
+        {
+            Title = "Invalid request",
+            Detail = message,
+            Status = StatusCodes.Status400BadRequest
+        };
+        problem.Extensions["code"] = code;
+
+        context.Response.StatusCode = problem.Status.Value;
+        context.Response.ContentType = "application/problem+json";
         await context.Response.WriteAsJsonAsync(problem);
     }
 }

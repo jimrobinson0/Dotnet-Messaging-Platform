@@ -37,6 +37,10 @@ public sealed class Message
         string? htmlBody,
         JsonElement? templateVariables,
         string? idempotencyKey,
+        Guid? replyToMessageId,
+        string? inReplyTo,
+        string? referencesHeader,
+        string? smtpMessageId,
         IEnumerable<MessageParticipant>? participants = null)
     {
         ArgumentNullException.ThrowIfNull(channel);
@@ -67,6 +71,10 @@ public sealed class Message
         HtmlBody = htmlBody;
         TemplateVariables = JsonGuard.EnsureCloned(templateVariables, nameof(templateVariables));
         IdempotencyKey = NormalizeIdempotencyKey(idempotencyKey);
+        ReplyToMessageId = replyToMessageId;
+        InReplyTo = inReplyTo;
+        ReferencesHeader = referencesHeader;
+        SmtpMessageId = smtpMessageId;
 
         _participants = participants is null
             ? []
@@ -97,6 +105,10 @@ public sealed class Message
     public string? HtmlBody { get; }
     public JsonElement? TemplateVariables { get; }
     public string? IdempotencyKey { get; }
+    public Guid? ReplyToMessageId { get; init; }
+    public string? InReplyTo { get; init; }
+    public string? ReferencesHeader { get; init; }
+    public string? SmtpMessageId { get; init; }
     public IReadOnlyList<MessageParticipant> Participants { get; }
 
     /// <summary>
@@ -115,7 +127,11 @@ public sealed class Message
         string? htmlBody,
         JsonElement? templateVariables,
         string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null)
+        IEnumerable<MessageParticipant>? participants = null,
+        Guid? replyToMessageId = null,
+        string? inReplyTo = null,
+        string? referencesHeader = null,
+        string? smtpMessageId = null)
     {
         return new Message(
             id,
@@ -137,6 +153,10 @@ public sealed class Message
             htmlBody,
             templateVariables,
             idempotencyKey,
+            replyToMessageId,
+            inReplyTo,
+            referencesHeader,
+            smtpMessageId,
             participants);
     }
 
@@ -156,7 +176,11 @@ public sealed class Message
         string? htmlBody,
         JsonElement? templateVariables,
         string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null)
+        IEnumerable<MessageParticipant>? participants = null,
+        Guid? replyToMessageId = null,
+        string? inReplyTo = null,
+        string? referencesHeader = null,
+        string? smtpMessageId = null)
     {
         return new Message(
             id,
@@ -178,6 +202,10 @@ public sealed class Message
             htmlBody,
             templateVariables,
             idempotencyKey,
+            replyToMessageId,
+            inReplyTo,
+            referencesHeader,
+            smtpMessageId,
             participants);
     }
 

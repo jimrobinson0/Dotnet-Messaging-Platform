@@ -19,7 +19,8 @@ public sealed class MessageWriterGuardrailTests
         // Concurrency-safe idempotency
         Assert.Matches(@"on\s+conflict\s+\(idempotency_key\)", sql);
         Assert.Matches(@"do\s+update", sql);
-        Assert.Matches(@"set\s+id\s*=\s*messages\.id", sql);
+        Assert.Matches(@"set\s+updated_at\s*=\s*now\(\)", sql);
+        Assert.DoesNotMatch(@"set\s+id\s*=", sql);
 
         // Insert vs replay discriminator
         Assert.Matches(@"\(\s*xmax\s*=\s*0\s*\)", sql);
@@ -45,6 +46,16 @@ public sealed class MessageWriterGuardrailTests
         Assert.DoesNotContain("sent_at", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("failure_reason", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("attempt_count", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set subject", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set text_body", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set html_body", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set template_key", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set template_version", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set template_resolved_at", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set template_variables", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set reply_to_message_id", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set in_reply_to", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("set references_header", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotMatch(@"@\bId\b", insertSql);
         Assert.Contains("returning id", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("WasCreated", insertSql, StringComparison.OrdinalIgnoreCase);

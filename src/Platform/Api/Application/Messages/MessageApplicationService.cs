@@ -56,7 +56,10 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 command.IdempotencyKey,
                 participants);
 
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = command.ReplyToMessageId
+        };
         var participantPrototypes = ParticipantPrototypeMapper.FromCore(message.Participants);
 
         var actorType = ParseActorType(command.ActorType);

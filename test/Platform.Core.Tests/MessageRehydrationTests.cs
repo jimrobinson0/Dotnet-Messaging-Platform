@@ -28,6 +28,10 @@ public class MessageRehydrationTests
             null,
             null,
             "rehydration-key",
+            null,
+            null,
+            null,
+            null,
             null);
 
         Assert.Equal(createdAt, message.CreatedAt);

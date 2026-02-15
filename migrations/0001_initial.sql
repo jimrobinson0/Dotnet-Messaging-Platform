@@ -48,6 +48,7 @@ CREATE TYPE core.message_participant_role AS ENUM (
 -- ============================================================
 
 CREATE TABLE core.messages (
+  -- identity
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   idempotency_key         TEXT NULL,
 
@@ -58,32 +59,37 @@ CREATE TABLE core.messages (
   status                  core.message_status NOT NULL,
   content_source          core.message_content_source NOT NULL,
 
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  -- worker claiming
-  claimed_by              VARCHAR NULL,
-  claimed_at              TIMESTAMPTZ NULL,
-
-  -- terminal markers
-  sent_at                 TIMESTAMPTZ NULL,
-  failure_reason          TEXT NULL,
-
-  -- delivery attempts
-  attempt_count           INTEGER NOT NULL DEFAULT 0,
-
   -- template identity (resolved at enqueue)
   template_key            VARCHAR NULL,
   template_version        VARCHAR NULL,
   template_resolved_at    TIMESTAMPTZ NULL,
+  template_variables      JSONB NULL,
+
+  -- reply linkage (internal graph)
+  reply_to_message_id     UUID NULL REFERENCES core.messages(id),
+
+  -- frozen sendable headers (protocol-level)
+  in_reply_to             TEXT NULL,
+  references_header       TEXT NULL,
 
   -- frozen sendable content
   subject                 TEXT NULL,
   text_body               TEXT NULL,
   html_body               TEXT NULL,
 
-  -- optional traceability
-  template_variables      JSONB NULL,
+  -- delivery outcome (written by worker)
+  smtp_message_id         TEXT NULL,
+  sent_at                 TIMESTAMPTZ NULL,
+  failure_reason          TEXT NULL,
+  attempt_count           INTEGER NOT NULL DEFAULT 0,
+
+  -- worker claiming
+  claimed_by              VARCHAR NULL,
+  claimed_at              TIMESTAMPTZ NULL,
+
+  -- timestamps
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT chk_template_identity
     CHECK (

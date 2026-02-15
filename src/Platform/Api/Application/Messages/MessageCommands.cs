@@ -15,6 +15,7 @@ public sealed record CreateMessageCommand(
     string? HtmlBody,
     JsonElement? TemplateVariables,
     string? IdempotencyKey,
+    Guid? ReplyToMessageId,
     IReadOnlyList<MessageParticipantInput> Participants,
     string ActorType,
     string ActorId);

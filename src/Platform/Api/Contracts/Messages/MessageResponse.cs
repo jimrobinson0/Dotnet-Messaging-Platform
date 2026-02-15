@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Messaging.Platform.Api.Contracts.Messages;
 
@@ -23,6 +24,10 @@ public sealed class MessageResponse
     public string? HtmlBody { get; init; }
     public string? IdempotencyKey { get; init; }
     public JsonElement? TemplateVariables { get; init; }
+    [JsonPropertyName("reply_to_message_id")] public Guid? ReplyToMessageId { get; init; }
+    [JsonPropertyName("in_reply_to")] public string? InReplyTo { get; init; }
+    [JsonPropertyName("references_header")] public string? ReferencesHeader { get; init; }
+    [JsonPropertyName("smtp_message_id")] public string? SmtpMessageId { get; init; }
 
     public IReadOnlyList<MessageParticipantResponse> Participants { get; init; } =
         Array.Empty<MessageParticipantResponse>();

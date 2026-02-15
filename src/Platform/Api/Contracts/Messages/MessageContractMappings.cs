@@ -28,6 +28,7 @@ public static class MessageContractMappings
             request.HtmlBody,
             request.TemplateVariables,
             idempotencyKey,
+            request.ReplyToMessageId,
             participants,
             request.ActorType,
             request.ActorId);
@@ -84,6 +85,10 @@ public static class MessageContractMappings
             TemplateVariables = message.TemplateVariables is { } templateVariables
                 ? templateVariables.Clone()
                 : null,
+            ReplyToMessageId = message.ReplyToMessageId,
+            InReplyTo = message.InReplyTo,
+            ReferencesHeader = message.ReferencesHeader,
+            SmtpMessageId = message.SmtpMessageId,
             Participants = participants
         };
     }

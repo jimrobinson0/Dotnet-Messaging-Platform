@@ -42,6 +42,10 @@ internal static class MessageMapper
             row.HtmlBody,
             ParseJson(row.TemplateVariablesJson),
             row.IdempotencyKey,
+            row.ReplyToMessageId,
+            row.InReplyTo,
+            row.ReferencesHeader,
+            row.SmtpMessageId,
             participants);
     }
 
@@ -105,6 +109,10 @@ internal sealed class MessageRow
     public string? HtmlBody { get; set; }
     public string? TemplateVariablesJson { get; set; }
     public string? IdempotencyKey { get; set; }
+    public Guid? ReplyToMessageId { get; set; }
+    public string? InReplyTo { get; set; }
+    public string? ReferencesHeader { get; set; }
+    public string? SmtpMessageId { get; set; }
 }
 
 internal sealed class MessageParticipantRow

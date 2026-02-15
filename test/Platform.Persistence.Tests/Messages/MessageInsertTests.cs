@@ -1,5 +1,6 @@
 using Dapper;
 using Messaging.Platform.Core;
+using Messaging.Platform.Core.Exceptions;
 using Messaging.Platform.Persistence.Audit;
 using Messaging.Platform.Persistence.Db;
 using Messaging.Platform.Persistence.Exceptions;
@@ -700,6 +701,543 @@ public sealed class MessageInsertTests : PostgresTestBase
         Assert.Equal(1, messageCount);
         Assert.Equal(2, participantCount);
         Assert.Equal(1, auditCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_reply_target_and_no_existing_references_persists_thread_headers()
+    {
+        await ResetDbAsync();
+
+        var repository = CreateRepository();
+        var replyTargetId = Guid.NewGuid();
+        const string smtpMessageId = "<original-no-refs@example.test>";
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (
+                  id, channel, status, content_source, subject, text_body, smtp_message_id, references_header
+                )
+                values (
+                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', @SmtpMessageId, null
+                );
+                """,
+                new
+                {
+                    Id = replyTargetId,
+                    SmtpMessageId = smtpMessageId
+                });
+        }
+
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = replyTargetId
+        };
+
+        var result = await repository.CreateAsync(
+            createIntent,
+            ParticipantPrototypeMapper.FromCore(message.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                message.Status,
+                "MessageCreated"));
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+
+        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+            """
+            select
+              reply_to_message_id as ReplyToMessageId,
+              in_reply_to as InReplyTo,
+              references_header as ReferencesHeader
+            from messages
+            where id = @MessageId
+            """,
+            new { MessageId = result.Message.Id });
+
+        Assert.Equal(replyTargetId, persisted.ReplyToMessageId);
+        Assert.Equal(smtpMessageId, persisted.InReplyTo);
+        Assert.Equal(smtpMessageId, persisted.ReferencesHeader);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_reply_target_and_existing_references_appends_smtp_message_id()
+    {
+        await ResetDbAsync();
+
+        var repository = CreateRepository();
+        var replyTargetId = Guid.NewGuid();
+        var rootMessageId = Guid.NewGuid();
+        const string smtpMessageId = "<original-with-refs@example.test>";
+        const string originalReferences = "<root@example.test> <parent@example.test>";
+        const string rootSmtpMessageId = "<root@example.test>";
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (
+                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                )
+                values (
+                  @RootId, 'email', 'Sent', 'Direct', 'Root', 'Body', @RootSmtpMessageId
+                );
+
+                insert into messages (
+                  id, channel, status, content_source, subject, text_body, reply_to_message_id,
+                  in_reply_to, smtp_message_id, references_header
+                )
+                values (
+                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', @RootId,
+                  @RootSmtpMessageId, @SmtpMessageId, @ReferencesHeader
+                );
+                """,
+                new
+                {
+                    Id = replyTargetId,
+                    RootId = rootMessageId,
+                    RootSmtpMessageId = rootSmtpMessageId,
+                    SmtpMessageId = smtpMessageId,
+                    ReferencesHeader = originalReferences
+                });
+        }
+
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = replyTargetId
+        };
+
+        var result = await repository.CreateAsync(
+            createIntent,
+            ParticipantPrototypeMapper.FromCore(message.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                message.Status,
+                "MessageCreated"));
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+
+        var persisted = await verifyConnection.QuerySingleAsync<(string InReplyTo, string ReferencesHeader)>(
+            """
+            select
+              in_reply_to as InReplyTo,
+              references_header as ReferencesHeader
+            from messages
+            where id = @MessageId
+            """,
+            new { MessageId = result.Message.Id });
+
+        Assert.Equal(smtpMessageId, persisted.InReplyTo);
+        Assert.Equal($"{originalReferences} {smtpMessageId}", persisted.ReferencesHeader);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_missing_reply_target_throws_invalid_reply_target_and_does_not_insert_message()
+    {
+        await ResetDbAsync();
+
+        var repository = CreateRepository();
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
+        var replyTargetId = Guid.NewGuid();
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = replyTargetId
+        };
+
+        var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
+            createIntent,
+            ParticipantPrototypeMapper.FromCore(message.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                message.Status,
+                "MessageCreated")));
+
+        Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        Assert.Equal(0, messageCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_reply_target_not_in_sent_status_throws_invalid_reply_target()
+    {
+        await ResetDbAsync();
+
+        var repository = CreateRepository();
+        var replyTargetId = Guid.NewGuid();
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (
+                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                )
+                values (
+                  @Id, 'email', 'Approved', 'Direct', 'Original', 'Body', '<approved@example.test>'
+                );
+                """,
+                new { Id = replyTargetId });
+        }
+
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = replyTargetId
+        };
+
+        var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
+            createIntent,
+            ParticipantPrototypeMapper.FromCore(message.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                message.Status,
+                "MessageCreated")));
+
+        Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        Assert.Equal(1, messageCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_reply_target_missing_smtp_message_id_throws_invalid_reply_target()
+    {
+        await ResetDbAsync();
+
+        var repository = CreateRepository();
+        var replyTargetId = Guid.NewGuid();
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (
+                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                )
+                values (
+                  @Id, 'email', 'Sent', 'Direct', 'Original', 'Body', null
+                );
+                """,
+                new { Id = replyTargetId });
+        }
+
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message) with
+        {
+            ReplyToMessageId = replyTargetId
+        };
+
+        var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
+            createIntent,
+            ParticipantPrototypeMapper.FromCore(message.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                message.Status,
+                "MessageCreated")));
+
+        Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+        var messageCount = await verifyConnection.QuerySingleAsync<int>("select count(1) from messages");
+        Assert.Equal(1, messageCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Constraint_rejects_reply_row_when_references_header_is_null()
+    {
+        await ResetDbAsync();
+
+        var rootMessageId = Guid.NewGuid();
+        const string rootSmtpMessageId = "<root-for-constraint@example.test>";
+
+        await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
+
+        await connection.ExecuteAsync(
+            """
+            insert into messages (
+              id, channel, status, content_source, subject, text_body, smtp_message_id
+            )
+            values (
+              @RootMessageId, 'email', 'Sent', 'Direct', 'Root', 'Body', @RootSmtpMessageId
+            );
+            """,
+            new
+            {
+                RootMessageId = rootMessageId,
+                RootSmtpMessageId = rootSmtpMessageId
+            });
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            """
+            insert into messages (
+              id, channel, status, content_source, subject, text_body,
+              reply_to_message_id, in_reply_to, references_header
+            )
+            values (
+              @ReplyMessageId, 'email', 'Approved', 'Direct', 'Reply', 'Body',
+              @RootMessageId, @RootSmtpMessageId, null
+            );
+            """,
+            new
+            {
+                ReplyMessageId = Guid.NewGuid(),
+                RootMessageId = rootMessageId,
+                RootSmtpMessageId = rootSmtpMessageId
+            }));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Constraint_allows_root_row_with_all_reply_fields_null()
+    {
+        await ResetDbAsync();
+
+        var messageId = Guid.NewGuid();
+
+        await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(
+            """
+            insert into messages (
+              id, channel, status, content_source, subject, text_body,
+              reply_to_message_id, in_reply_to, references_header
+            )
+            values (
+              @MessageId, 'email', 'Approved', 'Direct', 'Root', 'Body',
+              null, null, null
+            );
+            """,
+            new { MessageId = messageId });
+
+        var persisted = await connection.QuerySingleAsync<(Guid Id, Guid? ReplyToMessageId, string? InReplyTo, string? ReferencesHeader)>(
+            """
+            select
+              id as Id,
+              reply_to_message_id as ReplyToMessageId,
+              in_reply_to as InReplyTo,
+              references_header as ReferencesHeader
+            from messages
+            where id = @MessageId
+            """,
+            new { MessageId = messageId });
+
+        Assert.Equal(messageId, persisted.Id);
+        Assert.Null(persisted.ReplyToMessageId);
+        Assert.Null(persisted.InReplyTo);
+        Assert.Null(persisted.ReferencesHeader);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_with_same_idempotency_key_does_not_mutate_reply_fields()
+    {
+        await ResetDbAsync();
+
+        const string idempotencyKey = "reply-immutability-key";
+        var repository = CreateRepository();
+        var replyTargetAId = Guid.NewGuid();
+        var replyTargetBId = Guid.NewGuid();
+        const string smtpMessageIdA = "<reply-target-a@example.test>";
+        const string smtpMessageIdB = "<reply-target-b@example.test>";
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+
+                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                """,
+                new
+                {
+                    ReplyTargetAId = replyTargetAId,
+                    ReplyTargetBId = replyTargetBId,
+                    SmtpMessageIdA = smtpMessageIdA,
+                    SmtpMessageIdB = smtpMessageIdB
+                });
+        }
+
+        var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage) with
+        {
+            ReplyToMessageId = replyTargetAId
+        };
+
+        var firstResult = await repository.CreateAsync(
+            firstIntent,
+            ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                firstMessage.Status,
+                "MessageCreated"));
+
+        var replayMessageId = Guid.NewGuid();
+        var replayMessage = Message.CreateApproved(
+            replayMessageId,
+            "email",
+            MessageContentSource.Direct,
+            null,
+            null,
+            null,
+            "Mutated Subject",
+            "Mutated Body",
+            "<p>mutated</p>",
+            null,
+            idempotencyKey,
+            TestData.CreateParticipants(replayMessageId));
+
+        var replayIntent = MessageCreateIntentMapper.ToCreateIntent(replayMessage) with
+        {
+            ReplyToMessageId = replyTargetBId
+        };
+
+        var replayResult = await repository.CreateAsync(
+            replayIntent,
+            ParticipantPrototypeMapper.FromCore(replayMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                replayMessage.Status,
+                "MessageCreated"));
+
+        Assert.True(firstResult.WasCreated);
+        Assert.False(replayResult.WasCreated);
+        Assert.Equal(firstResult.Message.Id, replayResult.Message.Id);
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+            """
+            select
+              reply_to_message_id as ReplyToMessageId,
+              in_reply_to as InReplyTo,
+              references_header as ReferencesHeader
+            from messages
+            where id = @MessageId
+            """,
+            new { MessageId = firstResult.Message.Id });
+
+        Assert.Equal(replyTargetAId, persisted.ReplyToMessageId);
+        Assert.Equal(smtpMessageIdA, persisted.InReplyTo);
+        Assert.Equal(smtpMessageIdA, persisted.ReferencesHeader);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateAsync_same_idempotency_key_with_different_reply_to_does_not_change_existing_message()
+    {
+        await ResetDbAsync();
+
+        const string idempotencyKey = "reply-conflict-key";
+        var repository = CreateRepository();
+        var replyTargetAId = Guid.NewGuid();
+        var replyTargetBId = Guid.NewGuid();
+        const string smtpMessageIdA = "<reply-target-a-2@example.test>";
+        const string smtpMessageIdB = "<reply-target-b-2@example.test>";
+
+        await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                """
+                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetAId, 'email', 'Sent', 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+
+                insert into messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetBId, 'email', 'Sent', 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                """,
+                new
+                {
+                    ReplyTargetAId = replyTargetAId,
+                    ReplyTargetBId = replyTargetBId,
+                    SmtpMessageIdA = smtpMessageIdA,
+                    SmtpMessageIdB = smtpMessageIdB
+                });
+        }
+
+        var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage) with
+        {
+            ReplyToMessageId = replyTargetAId
+        };
+
+        var firstResult = await repository.CreateAsync(
+            firstIntent,
+            ParticipantPrototypeMapper.FromCore(firstMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                firstMessage.Status,
+                "MessageCreated"));
+
+        var secondMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
+        var secondIntent = MessageCreateIntentMapper.ToCreateIntent(secondMessage) with
+        {
+            ReplyToMessageId = replyTargetBId
+        };
+
+        var replayResult = await repository.CreateAsync(
+            secondIntent,
+            ParticipantPrototypeMapper.FromCore(secondMessage.Participants),
+            persistedMessageId => TestData.CreateAuditEvent(
+                persistedMessageId,
+                null,
+                secondMessage.Status,
+                "MessageCreated"));
+
+        Assert.True(firstResult.WasCreated);
+        Assert.False(replayResult.WasCreated);
+        Assert.Equal(firstResult.Message.Id, replayResult.Message.Id);
+
+        await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await verifyConnection.OpenAsync();
+        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+            """
+            select
+              reply_to_message_id as ReplyToMessageId,
+              in_reply_to as InReplyTo,
+              references_header as ReferencesHeader
+            from messages
+            where id = @MessageId
+            """,
+            new { MessageId = firstResult.Message.Id });
+
+        Assert.Equal(replyTargetAId, persisted.ReplyToMessageId);
+        Assert.Equal(smtpMessageIdA, persisted.InReplyTo);
+        Assert.Equal(smtpMessageIdA, persisted.ReferencesHeader);
     }
 
     private MessageRepository CreateRepository()

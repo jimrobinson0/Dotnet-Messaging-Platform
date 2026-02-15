@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Messaging.Platform.Api.Contracts.Messages;
 
@@ -26,6 +27,9 @@ public sealed class CreateMessageRequest
     public JsonElement? TemplateVariables { get; init; }
 
     [MaxLength(128)] public string? IdempotencyKey { get; init; }
+
+    [JsonPropertyName("reply_to_message_id")]
+    public Guid? ReplyToMessageId { get; init; }
 
     public IReadOnlyList<MessageParticipantRequest> Participants { get; init; } =
         Array.Empty<MessageParticipantRequest>();

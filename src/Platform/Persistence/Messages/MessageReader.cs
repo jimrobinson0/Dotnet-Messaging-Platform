@@ -28,7 +28,11 @@ public sealed class MessageReader
                                             m.text_body as TextBody,
                                             m.html_body as HtmlBody,
                                             m.template_variables::text as TemplateVariablesJson,
-                                            m.idempotency_key as IdempotencyKey
+                                            m.idempotency_key as IdempotencyKey,
+                                            m.reply_to_message_id as ReplyToMessageId,
+                                            m.in_reply_to as InReplyTo,
+                                            m.references_header as ReferencesHeader,
+                                            m.smtp_message_id as SmtpMessageId
                                           """;
 
     private const string ParticipantSelectSql = """
@@ -81,6 +85,16 @@ public sealed class MessageReader
                                               order by m.created_at
                                               limit @Limit
                                               """;
+
+    private const string ReplyTargetSql = """
+                                          select
+                                            m.id as Id,
+                                            m.status::text as Status,
+                                            m.smtp_message_id as SmtpMessageId,
+                                            m.references_header as ReferencesHeader
+                                          from messages m
+                                          where m.id = @MessageId
+                                          """;
 
     /// <summary>
     ///     Loads a message by ID within a transactional context.
@@ -147,6 +161,36 @@ public sealed class MessageReader
     {
         return await ListCoreAsync(
             status, limit, createdAfter, connection, null, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Loads minimal reply-threading state for a message.
+    ///     Returns null when the target message does not exist.
+    /// </summary>
+    internal async Task<ReplyTargetRow?> GetReplyTargetAsync(
+        Guid messageId,
+        DbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = DbGuard.GetConnection(transaction);
+
+        try
+        {
+            return await connection.QuerySingleOrDefaultAsync<ReplyTargetRow>(
+                new CommandDefinition(
+                    ReplyTargetSql,
+                    new { MessageId = messageId },
+                    transaction,
+                    cancellationToken: cancellationToken));
+        }
+        catch (PostgresException ex)
+        {
+            throw new PersistenceException("Failed to load reply target.", ex);
+        }
+        catch (NpgsqlException ex)
+        {
+            throw new PersistenceException("Failed to load reply target.", ex);
+        }
     }
 
     private async Task<Message> GetByIdCoreAsync(
@@ -241,4 +285,12 @@ public sealed class MessageReader
             throw new PersistenceException("Failed to list messages.", ex);
         }
     }
+}
+
+internal sealed class ReplyTargetRow
+{
+    public Guid Id { get; set; }
+    public MessageStatus Status { get; set; }
+    public string? SmtpMessageId { get; set; }
+    public string? ReferencesHeader { get; set; }
 }

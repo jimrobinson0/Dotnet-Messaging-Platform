@@ -14,4 +14,7 @@ public sealed record MessageCreateIntent(
     string? TextBody,
     string? HtmlBody,
     JsonElement? TemplateVariables,
-    string? IdempotencyKey);
+    string? IdempotencyKey,
+    Guid? ReplyToMessageId,
+    string? InReplyTo,
+    string? ReferencesHeader);
