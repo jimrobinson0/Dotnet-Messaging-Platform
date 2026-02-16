@@ -100,7 +100,7 @@ internal static class TestData
                 MessageParticipantRole.Sender,
                 "sender@example.com",
                 "Sender",
-                DateTimeOffset.UtcNow),
+                DateTimeOffset.MinValue),
 
             new(
                 Guid.NewGuid(),
@@ -108,7 +108,7 @@ internal static class TestData
                 MessageParticipantRole.To,
                 "to@example.com",
                 "To",
-                DateTimeOffset.UtcNow)
+                DateTimeOffset.MinValue)
         };
     }
 
@@ -116,8 +116,7 @@ internal static class TestData
         Guid messageId,
         MessageStatus? fromStatus,
         MessageStatus? toStatus,
-        AuditEventType eventType,
-        JsonElement? metadata = null)
+        AuditEventType eventType)
     {
         return new MessageAuditEvent(
             Guid.NewGuid(),
@@ -127,8 +126,7 @@ internal static class TestData
             toStatus,
             "System",
             "test",
-            DateTimeOffset.UtcNow,
-            metadata);
+            DateTimeOffset.MinValue);
     }
 
     public static MessageReview CreateApprovedReview(Guid messageId)
@@ -138,7 +136,6 @@ internal static class TestData
             messageId,
             ReviewDecision.Approved,
             "reviewer",
-            DateTimeOffset.UtcNow,
             "ok");
     }
 
@@ -149,7 +146,6 @@ internal static class TestData
             messageId,
             ReviewDecision.Rejected,
             "reviewer",
-            DateTimeOffset.UtcNow,
             "no");
     }
 }

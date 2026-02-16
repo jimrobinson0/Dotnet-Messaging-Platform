@@ -172,8 +172,7 @@ CREATE TABLE core.message_audit_events (
   actor_type      VARCHAR NOT NULL,  -- Human | Worker | System
   actor_id        VARCHAR NOT NULL,
 
-  occurred_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  metadata_json   JSONB NULL
+  occurred_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_message_audit_events_message_id

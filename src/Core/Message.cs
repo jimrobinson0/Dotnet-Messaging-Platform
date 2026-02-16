@@ -91,10 +91,10 @@ public sealed class Message
     public MessageStatus Status { get; private set; }
     public MessageContentSource ContentSource { get; }
     public DateTimeOffset CreatedAt { get; }
-    public DateTimeOffset UpdatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; }
     public string? ClaimedBy { get; private set; }
-    public DateTimeOffset? ClaimedAt { get; private set; }
-    public DateTimeOffset? SentAt { get; private set; }
+    public DateTimeOffset? ClaimedAt { get; }
+    public DateTimeOffset? SentAt { get; }
     public string? FailureReason { get; private set; }
     public int AttemptCount { get; private set; }
     public string? TemplateKey { get; }
@@ -175,7 +175,6 @@ public sealed class Message
     public ReviewDecisionResult Approve(
         Guid reviewId,
         string decidedBy,
-        DateTimeOffset decidedAt,
         string? notes,
         ActorType actorType)
     {
@@ -184,13 +183,12 @@ public sealed class Message
         EnsureReviewActor(actorType);
         EnsureReviewAllowed("Approval");
 
-        var transition = TransitionTo(MessageStatus.Approved, decidedAt);
+        var transition = TransitionTo(MessageStatus.Approved);
         var review = new MessageReview(
             reviewId,
             Id,
             ReviewDecision.Approved,
             decidedBy,
-            decidedAt,
             notes);
 
         return new ReviewDecisionResult(review, transition);
@@ -203,7 +201,6 @@ public sealed class Message
     public ReviewDecisionResult Reject(
         Guid reviewId,
         string decidedBy,
-        DateTimeOffset decidedAt,
         string? notes,
         ActorType actorType)
     {
@@ -212,13 +209,12 @@ public sealed class Message
         EnsureReviewActor(actorType);
         EnsureReviewAllowed("Rejection");
 
-        var transition = TransitionTo(MessageStatus.Rejected, decidedAt);
+        var transition = TransitionTo(MessageStatus.Rejected);
         var review = new MessageReview(
             reviewId,
             Id,
             ReviewDecision.Rejected,
             decidedBy,
-            decidedAt,
             notes);
 
         return new ReviewDecisionResult(review, transition);
@@ -226,30 +222,28 @@ public sealed class Message
 
     /// <summary>
     ///     Claims the message for delivery by a worker.
+    ///     ClaimedAt is DB-owned — set by persistence via now().
     /// </summary>
-    public MessageStatusTransition StartSending(
-        string claimedBy,
-        DateTimeOffset claimedAt)
+    public MessageStatusTransition StartSending(string claimedBy)
     {
         ArgumentNullException.ThrowIfNull(claimedBy);
 
-        var transition = TransitionTo(MessageStatus.Sending, claimedAt);
+        var transition = TransitionTo(MessageStatus.Sending);
         ClaimedBy = claimedBy;
-        ClaimedAt = claimedAt;
 
         return transition;
     }
 
     /// <summary>
     ///     Records a successful delivery attempt.
+    ///     SentAt is DB-owned — set by persistence via now().
     /// </summary>
-    public MessageStatusTransition RecordSendSuccess(DateTimeOffset sentAt)
+    public MessageStatusTransition RecordSendSuccess()
     {
         AttemptCount += 1;
 
-        var transition = TransitionTo(MessageStatus.Sent, sentAt);
+        var transition = TransitionTo(MessageStatus.Sent);
 
-        SentAt = sentAt;
         FailureReason = null;
 
         return transition;
@@ -261,8 +255,7 @@ public sealed class Message
     /// </summary>
     public MessageStatusTransition RecordSendAttemptFailure(
         int maxAttempts,
-        string? failureReason,
-        DateTimeOffset failedAt)
+        string? failureReason)
     {
         if (maxAttempts <= 0)
             throw new ArgumentOutOfRangeException(
@@ -275,10 +268,9 @@ public sealed class Message
             ? MessageStatus.Approved
             : MessageStatus.Failed;
 
-        var transition = TransitionTo(nextStatus, failedAt);
+        var transition = TransitionTo(nextStatus);
 
         FailureReason = failureReason;
-        SentAt = null;
 
         return transition;
     }
@@ -286,36 +278,23 @@ public sealed class Message
     /// <summary>
     ///     Cancels the message from any non-terminal state.
     /// </summary>
-    public MessageStatusTransition Cancel(DateTimeOffset canceledAt)
+    public MessageStatusTransition Cancel()
     {
-        return TransitionTo(MessageStatus.Canceled, canceledAt);
+        return TransitionTo(MessageStatus.Canceled);
     }
 
-    /// <summary>
-    ///     Transitions the message to a new status and records the logical event time.
-    /// </summary>
-    /// <remarks>
-    ///     UpdatedAt represents the logical time of the state transition as observed by the caller.
-    ///     Persisted timestamps are assigned by the database and may differ.
-    ///     After persistence, the in-memory aggregate is considered dirty with respect to DB-owned timestamps.
-    ///     See Persistence/README.md — Timestamp Ownership.
-    /// </remarks>
     private MessageStatusTransition TransitionTo(
-        MessageStatus toStatus,
-        DateTimeOffset occurredAt)
+        MessageStatus toStatus)
     {
         var fromStatus = Status;
 
         MessageLifecycle.EnsureValidTransition(fromStatus, toStatus);
 
         Status = toStatus;
-        UpdatedAt = occurredAt;
 
         return new MessageStatusTransition(
-            Id,
             fromStatus,
-            toStatus,
-            occurredAt);
+            toStatus);
     }
 
     private static void EnsureTemplateIdentityConstraint(

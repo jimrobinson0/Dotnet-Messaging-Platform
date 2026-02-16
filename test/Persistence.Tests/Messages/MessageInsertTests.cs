@@ -454,7 +454,7 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
                     null,
                     key,
                     Array.Empty<MessageParticipant>(),
-                    null));
+            null));
 
                 await using var uow = await UnitOfWork.BeginAsync(connectionFactory);
                 var result =
@@ -494,22 +494,16 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var firstResult = await repository.InsertAsync(
             firstMessage,
             true,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                firstMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         var secondMessageId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondMessageId, key);
         var secondResult = await repository.InsertAsync(
             secondMessage,
             true,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                secondMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         Assert.True(firstResult.Inserted);
         Assert.False(secondResult.Inserted);
@@ -565,11 +559,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var firstResult = await repository.InsertAsync(
             firstMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                firstMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         var secondId = Guid.NewGuid();
         var secondParticipants = TestData.CreateParticipants(secondId);
@@ -592,11 +583,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var replayResult = await repository.InsertAsync(
             secondMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                secondMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         Assert.Equal(firstResult.Message.Id, replayResult.Message.Id);
         Assert.False(replayResult.Inserted);
@@ -626,22 +614,16 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var firstResult = await repository.InsertAsync(
             firstMessage,
             true,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                firstMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         var secondId = Guid.NewGuid();
         var secondMessage = TestData.CreatePendingApprovalMessage(secondId);
         var secondResult = await repository.InsertAsync(
             secondMessage,
             true,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                secondMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         Assert.True(firstResult.Inserted);
         Assert.True(secondResult.Inserted);
@@ -687,11 +669,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
                 return await repository.InsertAsync(
                     message,
                     false,
-                    persistedMessageId => TestData.CreateAuditEvent(
-                        persistedMessageId,
-                        null,
-                        message.Status,
-                        AuditEventType.MessageCreated));
+                    "System",
+                    "test");
             })
             .ToArray();
 
@@ -757,11 +736,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var result = await repository.InsertAsync(
             message,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                message.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
@@ -832,11 +808,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var result = await repository.InsertAsync(
             message,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                message.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
@@ -868,11 +841,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.InsertAsync(
             message,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                message.Status,
-                AuditEventType.MessageCreated)));
+            "System",
+            "test"));
 
         Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
 
@@ -911,11 +881,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.InsertAsync(
             message,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                message.Status,
-                AuditEventType.MessageCreated)));
+            "System",
+            "test"));
 
         Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
 
@@ -954,11 +921,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.InsertAsync(
             message,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                message.Status,
-                AuditEventType.MessageCreated)));
+            "System",
+            "test"));
 
         Assert.Equal("INVALID_REPLY_TARGET", exception.Code);
 
@@ -1097,11 +1061,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var firstResult = await repository.InsertAsync(
             firstMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                firstMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         var replayMessageId = Guid.NewGuid();
         var replayMessage = Message.Create(new MessageCreateSpec(
@@ -1123,11 +1084,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var replayResult = await repository.InsertAsync(
             replayMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                replayMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         Assert.True(firstResult.Inserted);
         Assert.False(replayResult.Inserted);
@@ -1191,11 +1149,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var firstResult = await repository.InsertAsync(
             firstMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                firstMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         var secondMessage =
             TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey, replyTargetBId);
@@ -1203,11 +1158,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         var replayResult = await repository.InsertAsync(
             secondMessage,
             false,
-            persistedMessageId => TestData.CreateAuditEvent(
-                persistedMessageId,
-                null,
-                secondMessage.Status,
-                AuditEventType.MessageCreated));
+            "System",
+            "test");
 
         Assert.True(firstResult.Inserted);
         Assert.False(replayResult.Inserted);

@@ -10,7 +10,5 @@ public sealed class ReviewMessageRequest
 
     [MaxLength(255)] public string? ActorId { get; init; }
 
-    public DateTimeOffset? DecidedAt { get; init; }
-
     [MaxLength(10_000)] public string? Notes { get; init; }
 }

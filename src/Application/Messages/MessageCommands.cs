@@ -33,5 +33,4 @@ public sealed record ReviewMessageCommand(
     string DecidedBy,
     string ActorType,
     string? ActorId,
-    DateTimeOffset? DecidedAt,
     string? Notes);

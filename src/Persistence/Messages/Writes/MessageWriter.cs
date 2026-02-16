@@ -40,8 +40,8 @@ public sealed class MessageWriter
                                        status = @Status::core.message_status,
                                        updated_at = now(),
                                        claimed_by = @ClaimedBy,
-                                       claimed_at = @ClaimedAt,
-                                       sent_at = @SentAt,
+                                       claimed_at = CASE WHEN @ClaimedBy IS NOT NULL AND core.messages.claimed_at IS NULL THEN now() ELSE core.messages.claimed_at END,
+                                       sent_at = CASE WHEN @Status::text = 'Sent' THEN now() ELSE NULL END,
                                        failure_reason = @FailureReason,
                                        attempt_count = @AttemptCount
                                      where id = @Id;
@@ -94,8 +94,6 @@ public sealed class MessageWriter
             message.Id,
             Status = message.Status.ToString(),
             message.ClaimedBy,
-            message.ClaimedAt,
-            message.SentAt,
             message.FailureReason,
             message.AttemptCount
         };

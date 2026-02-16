@@ -17,9 +17,7 @@ public sealed class AuditWriter
                                        from_status,
                                        to_status,
                                        actor_type,
-                                       actor_id,
-                                       occurred_at,
-                                       metadata_json
+                                       actor_id
                                      )
                                      values (
                                        @Id,
@@ -28,13 +26,14 @@ public sealed class AuditWriter
                                        @FromStatus::core.message_status,
                                        @ToStatus::core.message_status,
                                        @ActorType,
-                                       @ActorId,
-                                       @OccurredAt,
-                                       @MetadataJson::jsonb
-                                     );
+                                       @ActorId
+                                     )
+                                     returning
+                                       id as Id,
+                                       occurred_at as OccurredAt;
                                      """;
 
-    public async Task InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction,
+    public async Task<MessageAuditEvent> InsertAsync(MessageAuditEvent auditEvent, DbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
@@ -48,15 +47,23 @@ public sealed class AuditWriter
             FromStatus = auditEvent.FromStatus?.ToString(),
             ToStatus = auditEvent.ToStatus?.ToString(),
             auditEvent.ActorType,
-            auditEvent.ActorId,
-            auditEvent.OccurredAt,
-            MetadataJson = auditEvent.MetadataJson?.GetRawText()
+            auditEvent.ActorId
         };
 
         try
         {
-            await connection.ExecuteAsync(
+            var persisted = await connection.QuerySingleAsync<InsertedAuditRow>(
                 new CommandDefinition(InsertSql, parameters, transaction, cancellationToken: cancellationToken));
+
+            return new MessageAuditEvent(
+                persisted.Id,
+                auditEvent.MessageId,
+                auditEvent.EventType,
+                auditEvent.FromStatus,
+                auditEvent.ToStatus,
+                auditEvent.ActorType,
+                auditEvent.ActorId,
+                persisted.OccurredAt);
         }
         catch (PostgresException ex)
         {
@@ -66,5 +73,11 @@ public sealed class AuditWriter
         {
             throw new PersistenceException("Failed to insert audit event.", ex);
         }
+    }
+
+    private sealed class InsertedAuditRow
+    {
+        public Guid Id { get; init; }
+        public DateTimeOffset OccurredAt { get; init; }
     }
 }

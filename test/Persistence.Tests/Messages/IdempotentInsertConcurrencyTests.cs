@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Dapper;
-using Messaging.Core.Audit;
 using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Messages;
@@ -35,11 +34,8 @@ public sealed class IdempotentInsertConcurrencyTests(PostgresFixture fixture) : 
                 var (persisted, inserted) = await repository.InsertAsync(
                     message,
                     false,
-                    persistedMessageId => TestData.CreateAuditEvent(
-                        persistedMessageId,
-                        null,
-                        message.Status,
-                        AuditEventType.MessageCreated),
+                    "System",
+                    "test",
                     cancellationToken);
 
                 results.Add((persisted.Id, inserted));

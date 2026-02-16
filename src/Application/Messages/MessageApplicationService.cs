@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Messaging.Core;
 using Messaging.Core.Audit;
 using Messaging.Persistence.Messages;
@@ -44,21 +43,12 @@ public sealed class MessageApplicationService : IMessageApplicationService
 
         var actorType = ParseActorType(command.ActorType);
         var actorId = RequireValue(command.ActorId, nameof(command.ActorId));
-        Func<Guid, MessageAuditEvent> auditEventFactory = persistedMessageId => new MessageAuditEvent(
-            Guid.NewGuid(),
-            persistedMessageId,
-            AuditEventType.MessageCreated,
-            fromStatus: null,
-            message.Status,
-            actorType.ToString(),
-            actorId,
-            occurredAt: DateTimeOffset.UtcNow,
-            metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
         var (persistedMessage, inserted) = await _messageRepository.InsertAsync(
             message,
             command.RequiresApproval,
-            auditEventFactory,
+            actorType.ToString(),
+            actorId,
             cancellationToken);
 
         var outcome = inserted
@@ -77,9 +67,8 @@ public sealed class MessageApplicationService : IMessageApplicationService
             messageId,
             command,
             AuditEventType.MessageApproved,
-            ReviewDecision.Approved,
-            (message, reviewId, decidedBy, decidedAt, notes, actorType) =>
-                message.Approve(reviewId, decidedBy, decidedAt, notes, actorType),
+            (message, reviewId, decidedBy, notes, actorType) =>
+                message.Approve(reviewId, decidedBy, notes, actorType),
             cancellationToken);
     }
 
@@ -92,9 +81,8 @@ public sealed class MessageApplicationService : IMessageApplicationService
             messageId,
             command,
             AuditEventType.MessageRejected,
-            ReviewDecision.Rejected,
-            (message, reviewId, decidedBy, decidedAt, notes, actorType) =>
-                message.Reject(reviewId, decidedBy, decidedAt, notes, actorType),
+            (message, reviewId, decidedBy, notes, actorType) =>
+                message.Reject(reviewId, decidedBy, notes, actorType),
             cancellationToken);
     }
 
@@ -109,8 +97,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
         Guid messageId,
         ReviewMessageCommand command,
         AuditEventType eventType,
-        ReviewDecision decision,
-        Func<Message, Guid, string, DateTimeOffset, string?, ActorType, ReviewDecisionResult> applyDecision,
+        Func<Message, Guid, string, string?, ActorType, ReviewDecisionResult> applyDecision,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -120,23 +107,6 @@ public sealed class MessageApplicationService : IMessageApplicationService
         var actorId = string.IsNullOrWhiteSpace(command.ActorId)
             ? decidedBy
             : command.ActorId;
-        var decidedAt = command.DecidedAt ?? DateTimeOffset.UtcNow;
-
-        var audit = new MessageAuditEvent(
-            Guid.NewGuid(),
-            messageId,
-            eventType,
-            fromStatus: null,
-            toStatus: null,
-            actorType.ToString(),
-            actorId,
-            decidedAt,
-            JsonSerializer.SerializeToElement(
-                new
-                {
-                    decision = decision.ToString(),
-                    command.Notes
-                }));
 
         return await _messageRepository.ApplyReviewAsync(
             messageId,
@@ -144,10 +114,11 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 message,
                 Guid.NewGuid(),
                 decidedBy,
-                decidedAt,
                 command.Notes,
                 actorType),
-            audit,
+            eventType,
+            actorType.ToString(),
+            actorId,
             cancellationToken);
     }
 
@@ -157,7 +128,6 @@ public sealed class MessageApplicationService : IMessageApplicationService
     {
         if (participants.Count == 0) return Array.Empty<MessageParticipant>();
 
-        var createdAt = DateTimeOffset.UtcNow;
         var mappedParticipants = new List<MessageParticipant>(participants.Count);
 
         foreach (var participant in participants)
@@ -167,7 +137,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
                 ParseParticipantRole(participant.Role),
                 RequireValue(participant.Address, nameof(participant.Address)),
                 participant.DisplayName,
-                createdAt));
+                DateTimeOffset.MinValue));
 
         return mappedParticipants;
     }

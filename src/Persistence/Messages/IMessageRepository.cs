@@ -1,4 +1,5 @@
 using Messaging.Core;
+using Messaging.Core.Audit;
 
 namespace Messaging.Persistence.Messages;
 
@@ -7,13 +8,16 @@ public interface IMessageRepository
     Task<(Message Message, bool Inserted)> InsertAsync(
         Message message,
         bool requiresApprovalFromRequest,
-        Func<Guid, MessageAuditEvent> auditEventFactory,
+        string actorType,
+        string actorId,
         CancellationToken cancellationToken = default);
 
     Task<Message> ApplyReviewAsync(
         Guid messageId,
         Func<Message, ReviewDecisionResult> applyDecision,
-        MessageAuditEvent auditEvent,
+        AuditEventType auditEventType,
+        string actorType,
+        string actorId,
         CancellationToken cancellationToken = default);
 
     Task<Message?> ClaimNextApprovedAsync(

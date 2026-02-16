@@ -15,7 +15,6 @@ public sealed class ReviewWriter
                                        message_id,
                                        decision,
                                        decided_by,
-                                       decided_at,
                                        notes
                                      )
                                      values (
@@ -23,7 +22,6 @@ public sealed class ReviewWriter
                                        @MessageId,
                                        @Decision::core.review_decision,
                                        @DecidedBy,
-                                       @DecidedAt,
                                        @Notes
                                      );
                                      """;
@@ -40,7 +38,6 @@ public sealed class ReviewWriter
             review.MessageId,
             Decision = review.Decision.ToString(),
             review.DecidedBy,
-            review.DecidedAt,
             review.Notes
         };
 

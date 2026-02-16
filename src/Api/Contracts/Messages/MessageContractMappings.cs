@@ -42,7 +42,6 @@ public static class MessageContractMappings
             request.DecidedBy,
             request.ActorType,
             request.ActorId,
-            request.DecidedAt,
             request.Notes);
     }
 

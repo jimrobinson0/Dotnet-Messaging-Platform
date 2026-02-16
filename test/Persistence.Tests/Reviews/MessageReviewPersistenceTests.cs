@@ -48,18 +48,19 @@ public sealed class MessageReviewPersistenceTests(PostgresFixture fixture) : Pos
         {
             await reviewWriter.InsertAsync(review, uow.Transaction);
 
-            var row = await uow.Connection.QuerySingleAsync<dynamic>(
+            var row = await uow.Connection.QuerySingleAsync<(string Decision, string DecidedBy, DateTimeOffset DecidedAt, string Notes)>(
                 """
-                select decision::text as Decision, decided_by as DecidedBy, notes as Notes
+                select decision::text as Decision, decided_by as DecidedBy, decided_at as DecidedAt, notes as Notes
                 from core.message_reviews
                 where message_id = @MessageId
                 """,
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
-            Assert.Equal("Approved", (string)row.decision);
-            Assert.Equal("reviewer", (string)row.decidedby);
-            Assert.Equal("ok", (string)row.notes);
+            Assert.Equal("Approved", row.Decision);
+            Assert.Equal("reviewer", row.DecidedBy);
+            Assert.NotEqual(default, row.DecidedAt);
+            Assert.Equal("ok", row.Notes);
 
             await uow.CommitAsync();
         }
@@ -101,17 +102,18 @@ public sealed class MessageReviewPersistenceTests(PostgresFixture fixture) : Pos
         {
             await reviewWriter.InsertAsync(review, uow.Transaction);
 
-            var row = await uow.Connection.QuerySingleAsync<dynamic>(
+            var row = await uow.Connection.QuerySingleAsync<(string Decision, DateTimeOffset DecidedAt, string Notes)>(
                 """
-                select decision::text as Decision, notes as Notes
+                select decision::text as Decision, decided_at as DecidedAt, notes as Notes
                 from core.message_reviews
                 where message_id = @MessageId
                 """,
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
-            Assert.Equal("Rejected", (string)row.decision);
-            Assert.Equal("no", (string)row.notes);
+            Assert.Equal("Rejected", row.Decision);
+            Assert.NotEqual(default, row.DecidedAt);
+            Assert.Equal("no", row.Notes);
 
             await uow.CommitAsync();
         }
@@ -192,19 +194,19 @@ public sealed class MessageReviewPersistenceTests(PostgresFixture fixture) : Pos
             persistedMessageId,
             ReviewDecision.Approved,
             "reviewer",
-            DateTimeOffset.UtcNow,
             null);
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             await reviewWriter.InsertAsync(review, uow.Transaction);
 
-            var notes = await uow.Connection.QuerySingleAsync<string?>(
-                "select notes from core.message_reviews where message_id = @MessageId",
+            var row = await uow.Connection.QuerySingleAsync<(string? Notes, DateTimeOffset DecidedAt)>(
+                "select notes as Notes, decided_at as DecidedAt from core.message_reviews where message_id = @MessageId",
                 new { MessageId = persistedMessageId },
                 uow.Transaction);
 
-            Assert.Null(notes);
+            Assert.Null(row.Notes);
+            Assert.NotEqual(default, row.DecidedAt);
 
             await uow.CommitAsync();
         }

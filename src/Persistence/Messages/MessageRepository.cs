@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Dapper;
 using Messaging.Core;
+using Messaging.Core.Audit;
 using Messaging.Core.Exceptions;
 using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
@@ -75,11 +76,15 @@ public sealed class MessageRepository(
     public async Task<(Message Message, bool Inserted)> InsertAsync(
         Message message,
         bool requiresApprovalFromRequest,
-        Func<Guid, MessageAuditEvent> auditEventFactory,
+        string actorType,
+        string actorId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
-        ArgumentNullException.ThrowIfNull(auditEventFactory);
+        if (string.IsNullOrWhiteSpace(actorType))
+            throw new ArgumentException("Actor type cannot be null or whitespace.", nameof(actorType));
+        if (string.IsNullOrWhiteSpace(actorId))
+            throw new ArgumentException("Actor id cannot be null or whitespace.", nameof(actorId));
 
         var record = InsertMessageRecordMapper.ToInsertRecord(message, requiresApprovalFromRequest);
         var participants = ParticipantPrototypeMapper.FromCore(message.Participants);
@@ -97,11 +102,18 @@ public sealed class MessageRepository(
             if (insertResult.Inserted)
             {
                 var persistedParticipants = ParticipantPrototypeMapper.Bind(insertResult.MessageId, participants);
-                var persistedAuditEvent = auditEventFactory(insertResult.MessageId);
-                ArgumentNullException.ThrowIfNull(persistedAuditEvent);
+                var auditEvent = new MessageAuditEvent(
+                    Guid.NewGuid(),
+                    insertResult.MessageId,
+                    AuditEventType.MessageCreated,
+                    fromStatus: null,
+                    message.Status,
+                    actorType,
+                    actorId,
+                    DateTimeOffset.MinValue);
 
                 await participantWriter.InsertAsync(persistedParticipants, uow.Transaction, cancellationToken);
-                await auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
+                _ = await auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
             }
 
             await uow.CommitAsync(cancellationToken);
@@ -157,11 +169,16 @@ public sealed class MessageRepository(
     public async Task<Message> ApplyReviewAsync(
         Guid messageId,
         Func<Message, ReviewDecisionResult> applyDecision,
-        MessageAuditEvent auditEvent,
+        AuditEventType auditEventType,
+        string actorType,
+        string actorId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(applyDecision);
-        ArgumentNullException.ThrowIfNull(auditEvent);
+        if (string.IsNullOrWhiteSpace(actorType))
+            throw new ArgumentException("Actor type cannot be null or whitespace.", nameof(actorType));
+        if (string.IsNullOrWhiteSpace(actorId))
+            throw new ArgumentException("Actor id cannot be null or whitespace.", nameof(actorId));
 
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory, cancellationToken: cancellationToken))
         {
@@ -171,18 +188,17 @@ public sealed class MessageRepository(
             await messageWriter.UpdateAsync(message, uow.Transaction, cancellationToken);
             await reviewWriter.InsertAsync(reviewResult.Review, uow.Transaction, cancellationToken);
 
-            var persistedAuditEvent = new MessageAuditEvent(
-                auditEvent.Id,
+            var auditEvent = new MessageAuditEvent(
+                Guid.NewGuid(),
                 messageId,
-                auditEvent.EventType,
+                auditEventType,
                 reviewResult.Transition.FromStatus,
                 reviewResult.Transition.ToStatus,
-                auditEvent.ActorType,
-                auditEvent.ActorId,
-                reviewResult.Transition.OccurredAt,
-                auditEvent.MetadataJson);
+                actorType,
+                actorId,
+                DateTimeOffset.MinValue);
 
-            await auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
+            _ = await auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
             await uow.CommitAsync(cancellationToken);
         }
 
@@ -215,6 +231,18 @@ public sealed class MessageRepository(
             }
 
             var message = MessageMapper.RehydrateMessage(row);
+
+            var auditEvent = new MessageAuditEvent(
+                Guid.NewGuid(),
+                message.Id,
+                AuditEventType.MessageClaimed,
+                MessageStatus.Approved,
+                MessageStatus.Sending,
+                "Worker",
+                workerId,
+                DateTimeOffset.MinValue);
+
+            _ = await auditWriter.InsertAsync(auditEvent, uow.Transaction, cancellationToken);
 
             await uow.CommitAsync(cancellationToken);
             return message;

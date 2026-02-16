@@ -56,7 +56,7 @@ public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBa
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.Cancel(DateTimeOffset.UtcNow);
+            loaded.Cancel();
 
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -102,11 +102,10 @@ public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBa
             await uow.CommitAsync();
         }
 
-        var claimedAt = DateTimeOffset.UtcNow;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.StartSending("worker-1", claimedAt);
+            loaded.StartSending("worker-1");
 
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
@@ -156,16 +155,15 @@ public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBa
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.StartSending("worker-1", DateTimeOffset.UtcNow);
+            loaded.StartSending("worker-1");
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
         }
 
-        var sentAt = DateTimeOffset.UtcNow;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.RecordSendSuccess(sentAt);
+            loaded.RecordSendSuccess();
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
         }
@@ -215,7 +213,7 @@ public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBa
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.StartSending("worker-1", DateTimeOffset.UtcNow);
+            loaded.StartSending("worker-1");
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
         }
@@ -224,7 +222,7 @@ public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBa
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var loaded = await reader.GetForUpdateAsync(persistedMessageId, uow.Transaction);
-            loaded.RecordSendAttemptFailure(3, "SMTP timeout", DateTimeOffset.UtcNow);
+            loaded.RecordSendAttemptFailure(3, "SMTP timeout");
             await messageWriter.UpdateAsync(loaded, uow.Transaction);
             await uow.CommitAsync();
         }
