@@ -4,6 +4,8 @@ using Messaging.Core.Audit;
 using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Messages;
+using Messaging.Persistence.Messages.Reads;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Reviews;
 using Messaging.Persistence.Tests.Infrastructure;
@@ -11,12 +13,8 @@ using Npgsql;
 
 namespace Messaging.Persistence.Tests.Messages;
 
-public sealed class IdempotentInsertConcurrencyTests : PostgresTestBase
+public sealed class IdempotentInsertConcurrencyTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public IdempotentInsertConcurrencyTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task Concurrent_inserts_with_same_idempotency_key_result_in_single_row()

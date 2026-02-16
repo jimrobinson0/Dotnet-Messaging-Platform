@@ -1,18 +1,16 @@
 using Messaging.Core;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
-using Messaging.Persistence.Messages;
+using Messaging.Persistence.Messages.Mapping;
+using Messaging.Persistence.Messages.Reads;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Tests.Infrastructure;
 
 namespace Messaging.Persistence.Tests.Messages;
 
-public sealed class MessageUpdateTests : PostgresTestBase
+public sealed class MessageUpdateTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public MessageUpdateTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task Update_persists_status_and_updated_at_changes()

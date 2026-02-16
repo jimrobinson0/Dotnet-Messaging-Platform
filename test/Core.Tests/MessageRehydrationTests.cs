@@ -31,7 +31,6 @@ public class MessageRehydrationTests
             null,
             null,
             null,
-            null,
             null);
 
         Assert.Equal(createdAt, message.CreatedAt);

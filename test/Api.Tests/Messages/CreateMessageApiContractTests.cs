@@ -191,7 +191,7 @@ public sealed class CreateMessageApiContractTests
                 requiresApproval = false,
                 subject = "Subject",
                 textBody = "Hello",
-                replyToMessageId = replyToMessageId,
+                replyToMessageId,
                 participants = Array.Empty<object>(),
                 actorType = "System",
                 actorId = "api"
@@ -263,15 +263,9 @@ public sealed class CreateMessageApiContractTests
             replyToMessageId));
     }
 
-    private sealed class MessagingApiFactory : WebApplicationFactory<Program>
+    private sealed class MessagingApiFactory(IMessageApplicationService messageApplicationService)
+        : WebApplicationFactory<Program>
     {
-        private readonly IMessageApplicationService _messageApplicationService;
-
-        public MessagingApiFactory(IMessageApplicationService messageApplicationService)
-        {
-            _messageApplicationService = messageApplicationService;
-        }
-
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration((_, config) =>
@@ -285,7 +279,7 @@ public sealed class CreateMessageApiContractTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IMessageApplicationService>();
-                services.AddSingleton(_messageApplicationService);
+                services.AddSingleton(messageApplicationService);
             });
         }
     }

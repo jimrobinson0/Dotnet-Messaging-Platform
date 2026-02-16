@@ -4,14 +4,9 @@ namespace Messaging.Persistence.Tests.Infrastructure;
 ///     Base class for tests that require a clean database.
 /// </summary>
 [Collection("Postgres")]
-public abstract class PostgresTestBase
+public abstract class PostgresTestBase(PostgresFixture fixture)
 {
-    protected PostgresTestBase(PostgresFixture fixture)
-    {
-        Fixture = fixture;
-    }
-
-    protected PostgresFixture Fixture { get; }
+    protected PostgresFixture Fixture { get; } = fixture;
 
     protected Task ResetDbAsync()
     {

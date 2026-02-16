@@ -3,9 +3,10 @@ using Dapper;
 using Messaging.Core;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
+using Messaging.Persistence.Messages.Mapping;
 using Npgsql;
 
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Writes;
 
 public sealed class MessageWriter
 {

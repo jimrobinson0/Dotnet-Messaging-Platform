@@ -1,6 +1,4 @@
-using Messaging.Persistence.Messages.Reads;
-
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Reads;
 
 public interface IMessageReadRepository
 {

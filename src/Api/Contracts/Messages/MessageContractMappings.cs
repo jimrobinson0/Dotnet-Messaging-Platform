@@ -9,7 +9,7 @@ public static class MessageContractMappings
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var participants = (request.Participants ?? Array.Empty<MessageParticipantRequest>())
+        var participants = (request.Participants)
             .Select(participant => new MessageParticipantInput(
                 participant.Role,
                 participant.Address,

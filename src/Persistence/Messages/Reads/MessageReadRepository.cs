@@ -3,10 +3,9 @@ using Dapper;
 using Messaging.Core;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
-using Messaging.Persistence.Messages.Reads;
 using Npgsql;
 
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Reads;
 
 public sealed class MessageReadRepository : IMessageReadRepository
 {

@@ -5,86 +5,80 @@ using Messaging.Core.Exceptions;
 using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
+using Messaging.Persistence.Messages.Mapping;
+using Messaging.Persistence.Messages.Reads;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Reviews;
 using Npgsql;
 
 namespace Messaging.Persistence.Messages;
 
-public sealed class MessageRepository : IMessageRepository
+public sealed class MessageRepository(
+    DbConnectionFactory connectionFactory,
+    MessageReader messageReader,
+    MessageWriter messageWriter,
+    ParticipantWriter participantWriter,
+    ReviewWriter reviewWriter,
+    AuditWriter auditWriter)
+    : IMessageRepository
 {
     private const string InvalidReplyTargetErrorCode = "INVALID_REPLY_TARGET";
-    internal const string ClaimNextApprovedSql = """
-                                                     with cte as (
-                                                         select id
-                                                         from core.messages
-                                                     where status = 'Approved'::core.message_status
-                                                         order by created_at, id
-                                                         for update skip locked
-                                                         limit 1
-                                                     ),
-                                                 claimed as (
-                                                     update core.messages m
-                                                     set
-                                                       -- attempt_count is incremented during actual delivery attempts by workers.
-                                                       -- Claiming a message does not represent a delivery attempt.
-                                                       status = 'Sending'::core.message_status,
-                                                       claimed_by = @WorkerId,
-                                                       claimed_at = now(),
-                                                       updated_at = now()
-                                                     from cte
-                                                     where m.id = cte.id
-                                                    returning m.*
-                                                 )
-                                                 select
-                                                   c.id as Id,
-                                                   c.channel as Channel,
-                                                   c.status as Status,
-                                                   c.content_source::text as ContentSource,
-                                                   c.created_at as CreatedAt,
-                                                   c.updated_at as UpdatedAt,
-                                                   c.claimed_by as ClaimedBy,
-                                                   c.claimed_at as ClaimedAt,
-                                                   c.sent_at as SentAt,
-                                                   c.failure_reason as FailureReason,
-                                                   c.attempt_count as AttemptCount,
-                                                   c.template_key as TemplateKey,
-                                                   c.template_version as TemplateVersion,
-                                                   c.template_resolved_at as TemplateResolvedAt,
-                                                   c.subject as Subject,
-                                                   c.text_body as TextBody,
-                                                   c.html_body as HtmlBody,
-                                                   c.template_variables::text as TemplateVariablesJson,
-                                                   c.idempotency_key as IdempotencyKey,
-                                                   c.reply_to_message_id as ReplyToMessageId,
-                                                   c.in_reply_to as InReplyTo,
-                                                   c.references_header as ReferencesHeader,
-                                                   c.smtp_message_id as SmtpMessageId
-                                                 from claimed c;
-                                                 """;
+    private const string ClaimNextApprovedSql = """
+                                                    with cte as (
+                                                        select id
+                                                        from core.messages
+                                                    where status = 'Approved'::core.message_status
+                                                        order by created_at, id
+                                                        for update skip locked
+                                                        limit 1
+                                                    ),
+                                                claimed as (
+                                                    update core.messages m
+                                                    set
+                                                      -- attempt_count is incremented during actual delivery attempts by workers.
+                                                      -- Claiming a message does not represent a delivery attempt.
+                                                      status = 'Sending'::core.message_status,
+                                                      claimed_by = @WorkerId,
+                                                      claimed_at = now(),
+                                                      updated_at = now()
+                                                    from cte
+                                                    where m.id = cte.id
+                                                   returning m.*
+                                                )
+                                                select
+                                                  c.id as Id,
+                                                  c.channel as Channel,
+                                                  c.status as Status,
+                                                  c.content_source::text as ContentSource,
+                                                  c.created_at as CreatedAt,
+                                                  c.updated_at as UpdatedAt,
+                                                  c.claimed_by as ClaimedBy,
+                                                  c.claimed_at as ClaimedAt,
+                                                  c.sent_at as SentAt,
+                                                  c.failure_reason as FailureReason,
+                                                  c.attempt_count as AttemptCount,
+                                                  c.template_key as TemplateKey,
+                                                  c.template_version as TemplateVersion,
+                                                  c.template_resolved_at as TemplateResolvedAt,
+                                                  c.subject as Subject,
+                                                  c.text_body as TextBody,
+                                                  c.html_body as HtmlBody,
+                                                  c.template_variables::text as TemplateVariablesJson,
+                                                  c.idempotency_key as IdempotencyKey,
+                                                  c.reply_to_message_id as ReplyToMessageId,
+                                                  c.in_reply_to as InReplyTo,
+                                                  c.references_header as ReferencesHeader,
+                                                  c.smtp_message_id as SmtpMessageId
+                                                from claimed c;
+                                                """;
 
-    private readonly AuditWriter _auditWriter;
-    private readonly DbConnectionFactory _connectionFactory;
-    private readonly MessageReader _messageReader;
-    private readonly MessageWriter _messageWriter;
-    private readonly ParticipantWriter _participantWriter;
-    private readonly ReviewWriter _reviewWriter;
-
-    public MessageRepository(
-        DbConnectionFactory connectionFactory,
-        MessageReader messageReader,
-        MessageWriter messageWriter,
-        ParticipantWriter participantWriter,
-        ReviewWriter reviewWriter,
-        AuditWriter auditWriter)
-    {
-        _connectionFactory = connectionFactory;
-        _messageReader = messageReader;
-        _messageWriter = messageWriter;
-        _participantWriter = participantWriter;
-        _reviewWriter = reviewWriter;
-        _auditWriter = auditWriter;
-    }
+    private readonly AuditWriter _auditWriter = auditWriter;
+    private readonly DbConnectionFactory _connectionFactory = connectionFactory;
+    private readonly MessageReader _messageReader = messageReader;
+    private readonly MessageWriter _messageWriter = messageWriter;
+    private readonly ParticipantWriter _participantWriter = participantWriter;
+    private readonly ReviewWriter _reviewWriter = reviewWriter;
 
     public async Task<(Message Message, bool Inserted)> InsertAsync(
         Message message,

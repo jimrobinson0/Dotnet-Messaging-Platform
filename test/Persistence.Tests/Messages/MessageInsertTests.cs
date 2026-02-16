@@ -6,6 +6,9 @@ using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
 using Messaging.Persistence.Messages;
+using Messaging.Persistence.Messages.Mapping;
+using Messaging.Persistence.Messages.Reads;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Reviews;
 using Messaging.Persistence.Tests.Infrastructure;
@@ -13,12 +16,8 @@ using Npgsql;
 
 namespace Messaging.Persistence.Tests.Messages;
 
-public sealed class MessageInsertTests : PostgresTestBase
+public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public MessageInsertTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task Insert_and_rehydrate_message_round_trips_fields_and_participants()
@@ -36,7 +35,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             var participantWriter = new ParticipantWriter();
             var auditWriter = new AuditWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(message, true),
+            insertResult = await messageWriter.InsertIdempotentAsync(
+                InsertMessageRecordMapper.ToInsertRecord(message, true),
                 uow.Transaction);
             Assert.True(insertResult.Inserted);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -98,7 +98,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(message, false),
+            insertResult = await messageWriter.InsertIdempotentAsync(
+                InsertMessageRecordMapper.ToInsertRecord(message, false),
                 uow.Transaction);
             Assert.True(insertResult.Inserted);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -137,7 +138,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             var messageWriter = new MessageWriter();
             var participantWriter = new ParticipantWriter();
 
-            insertResult = await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(message, true),
+            insertResult = await messageWriter.InsertIdempotentAsync(
+                InsertMessageRecordMapper.ToInsertRecord(message, true),
                 uow.Transaction);
             Assert.True(insertResult.Inserted);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -179,7 +181,8 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            insertResult = await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(message, true),
+            insertResult = await messageWriter.InsertIdempotentAsync(
+                InsertMessageRecordMapper.ToInsertRecord(message, true),
                 uow.Transaction);
             Assert.True(insertResult.Inserted);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -212,7 +215,8 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             var messageWriter = new MessageWriter();
-            insertResult = await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(message, true),
+            insertResult = await messageWriter.InsertIdempotentAsync(
+                InsertMessageRecordMapper.ToInsertRecord(message, true),
                 uow.Transaction);
             Assert.True(insertResult.Inserted);
             Assert.NotEqual(Guid.Empty, insertResult.MessageId);
@@ -267,7 +271,8 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
+                await messageWriter.InsertIdempotentAsync(
+                    InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -346,7 +351,8 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
+                await messageWriter.InsertIdempotentAsync(
+                    InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -400,7 +406,8 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             secondInsert =
-                await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
+                await messageWriter.InsertIdempotentAsync(
+                    InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
                     uow.Transaction);
             await uow.CommitAsync();
         }
@@ -759,16 +766,17 @@ public sealed class MessageInsertTests : PostgresTestBase
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
 
-        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
-            """
-            select
-              reply_to_message_id as ReplyToMessageId,
-              in_reply_to as InReplyTo,
-              references_header as ReferencesHeader
-            from core.messages
-            where id = @MessageId
-            """,
-            new { MessageId = result.Message.Id });
+        var persisted = await verifyConnection
+            .QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+                """
+                select
+                  reply_to_message_id as ReplyToMessageId,
+                  in_reply_to as InReplyTo,
+                  references_header as ReferencesHeader
+                from core.messages
+                where id = @MessageId
+                """,
+                new { MessageId = result.Message.Id });
 
         Assert.Equal(replyTargetId, persisted.ReplyToMessageId);
         Assert.Equal(smtpMessageId, persisted.InReplyTo);
@@ -1031,17 +1039,18 @@ public sealed class MessageInsertTests : PostgresTestBase
             """,
             new { MessageId = messageId });
 
-        var persisted = await connection.QuerySingleAsync<(Guid Id, Guid? ReplyToMessageId, string? InReplyTo, string? ReferencesHeader)>(
-            """
-            select
-              id as Id,
-              reply_to_message_id as ReplyToMessageId,
-              in_reply_to as InReplyTo,
-              references_header as ReferencesHeader
-            from core.messages
-            where id = @MessageId
-            """,
-            new { MessageId = messageId });
+        var persisted = await connection
+            .QuerySingleAsync<(Guid Id, Guid? ReplyToMessageId, string? InReplyTo, string? ReferencesHeader)>(
+                """
+                select
+                  id as Id,
+                  reply_to_message_id as ReplyToMessageId,
+                  in_reply_to as InReplyTo,
+                  references_header as ReferencesHeader
+                from core.messages
+                where id = @MessageId
+                """,
+                new { MessageId = messageId });
 
         Assert.Equal(messageId, persisted.Id);
         Assert.Null(persisted.ReplyToMessageId);
@@ -1126,16 +1135,17 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
-        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
-            """
-            select
-              reply_to_message_id as ReplyToMessageId,
-              in_reply_to as InReplyTo,
-              references_header as ReferencesHeader
-            from core.messages
-            where id = @MessageId
-            """,
-            new { MessageId = firstResult.Message.Id });
+        var persisted = await verifyConnection
+            .QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+                """
+                select
+                  reply_to_message_id as ReplyToMessageId,
+                  in_reply_to as InReplyTo,
+                  references_header as ReferencesHeader
+                from core.messages
+                where id = @MessageId
+                """,
+                new { MessageId = firstResult.Message.Id });
 
         Assert.Equal(replyTargetAId, persisted.ReplyToMessageId);
         Assert.Equal(smtpMessageIdA, persisted.InReplyTo);
@@ -1205,16 +1215,17 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         await using var verifyConnection = new NpgsqlConnection(Fixture.ConnectionString);
         await verifyConnection.OpenAsync();
-        var persisted = await verifyConnection.QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
-            """
-            select
-              reply_to_message_id as ReplyToMessageId,
-              in_reply_to as InReplyTo,
-              references_header as ReferencesHeader
-            from core.messages
-            where id = @MessageId
-            """,
-            new { MessageId = firstResult.Message.Id });
+        var persisted = await verifyConnection
+            .QuerySingleAsync<(Guid ReplyToMessageId, string InReplyTo, string ReferencesHeader)>(
+                """
+                select
+                  reply_to_message_id as ReplyToMessageId,
+                  in_reply_to as InReplyTo,
+                  references_header as ReferencesHeader
+                from core.messages
+                where id = @MessageId
+                """,
+                new { MessageId = firstResult.Message.Id });
 
         Assert.Equal(replyTargetAId, persisted.ReplyToMessageId);
         Assert.Equal(smtpMessageIdA, persisted.InReplyTo);

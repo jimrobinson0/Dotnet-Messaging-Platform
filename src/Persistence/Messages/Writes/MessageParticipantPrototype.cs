@@ -1,6 +1,6 @@
 using Messaging.Core;
 
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Writes;
 
 internal sealed record MessageParticipantPrototype(
     Guid Id,

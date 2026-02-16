@@ -1,18 +1,9 @@
-using Messaging.Application;
-using Messaging.Persistence.Messages;
 using Messaging.Persistence.Messages.Reads;
 
 namespace Messaging.Application.Messages;
 
-public sealed class MessageQueryService : IMessageQueryService
+public sealed class MessageQueryService(IMessageReadRepository readRepository) : IMessageQueryService
 {
-    private readonly IMessageReadRepository _readRepository;
-
-    public MessageQueryService(IMessageReadRepository readRepository)
-    {
-        _readRepository = readRepository;
-    }
-
     public async Task<PagedResult<MessageSummary>> ListAsync(
         ListMessagesQuery query,
         CancellationToken cancellationToken = default)
@@ -31,7 +22,7 @@ public sealed class MessageQueryService : IMessageQueryService
             query.SentTo,
             query.RequiresApproval);
 
-        var page = await _readRepository.ListAsync(readQuery, cancellationToken);
+        var page = await readRepository.ListAsync(readQuery, cancellationToken);
 
         return new PagedResult<MessageSummary>
         {

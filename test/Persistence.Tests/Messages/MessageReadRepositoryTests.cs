@@ -1,19 +1,14 @@
 using Dapper;
 using Messaging.Core;
 using Messaging.Persistence.Db;
-using Messaging.Persistence.Messages;
 using Messaging.Persistence.Messages.Reads;
 using Messaging.Persistence.Tests.Infrastructure;
 using Npgsql;
 
 namespace Messaging.Persistence.Tests.Messages;
 
-public sealed class MessageReadRepositoryTests : PostgresTestBase
+public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public MessageReadRepositoryTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task ListAsync_respects_page_and_page_size()

@@ -3,6 +3,8 @@ using Messaging.Core;
 using Messaging.Persistence.Audit;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Messages;
+using Messaging.Persistence.Messages.Reads;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Reviews;
 using Messaging.Persistence.Tests.Infrastructure;
@@ -10,12 +12,8 @@ using Npgsql;
 
 namespace Messaging.Persistence.Tests.Messages;
 
-public sealed class MessageClaimTests : PostgresTestBase
+public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public MessageClaimTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task ClaimNextApprovedAsync_claims_oldest_approved_message_and_sets_claim_metadata()
@@ -58,7 +56,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         var claimed = await repository.ClaimNextApprovedAsync("worker-1");
 
         Assert.NotNull(claimed);
-        Assert.Equal(oldestApprovedId, claimed!.Id);
+        Assert.Equal(oldestApprovedId, claimed.Id);
         Assert.Equal(MessageStatus.Sending, claimed.Status);
         Assert.Equal("worker-1", claimed.ClaimedBy);
         Assert.NotNull(claimed.ClaimedAt);
@@ -153,8 +151,8 @@ public sealed class MessageClaimTests : PostgresTestBase
 
         Assert.NotNull(firstClaim);
         Assert.NotNull(secondClaim);
-        Assert.Equal(firstId, firstClaim!.Id);
-        Assert.Equal(secondId, secondClaim!.Id);
+        Assert.Equal(firstId, firstClaim.Id);
+        Assert.Equal(secondId, secondClaim.Id);
     }
 
     [Fact]
@@ -181,7 +179,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         var secondClaim = await repository.ClaimNextApprovedAsync("worker-2");
 
         Assert.NotNull(firstClaim);
-        Assert.Equal(approvedMessageId, firstClaim!.Id);
+        Assert.Equal(approvedMessageId, firstClaim.Id);
         Assert.Null(secondClaim);
         Assert.Equal("worker-1", firstClaim.ClaimedBy);
     }
@@ -270,7 +268,7 @@ public sealed class MessageClaimTests : PostgresTestBase
         var claim = await repository.ClaimNextApprovedAsync("worker-1");
 
         Assert.NotNull(claim);
-        Assert.Equal(messageId, claim!.Id);
+        Assert.Equal(messageId, claim.Id);
         Assert.Equal(MessageStatus.Sending, claim.Status);
         Assert.Equal(2, claim.AttemptCount);
 
@@ -310,7 +308,7 @@ public sealed class MessageClaimTests : PostgresTestBase
 
         var claimed = await repository.ClaimNextApprovedAsync("worker-1");
         Assert.NotNull(claimed);
-        Assert.Equal(firstInsert.MessageId, claimed!.Id);
+        Assert.Equal(firstInsert.MessageId, claimed.Id);
         Assert.Equal(MessageStatus.Sending, claimed.Status);
 
         await Task.Delay(25);

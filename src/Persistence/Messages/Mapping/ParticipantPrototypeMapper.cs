@@ -1,6 +1,7 @@
 using Messaging.Core;
+using Messaging.Persistence.Messages.Writes;
 
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Mapping;
 
 internal static class ParticipantPrototypeMapper
 {

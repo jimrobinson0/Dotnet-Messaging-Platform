@@ -1,5 +1,4 @@
 using Messaging.Core;
-using Messaging.Persistence.Audit;
 
 namespace Messaging.Persistence.Messages;
 

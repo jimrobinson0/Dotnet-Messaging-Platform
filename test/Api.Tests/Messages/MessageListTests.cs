@@ -6,7 +6,6 @@ using Messaging.Application.Messages;
 using Messaging.Api.Contracts;
 using Messaging.Api.Contracts.Messages;
 using Messaging.Core;
-using Messaging.Persistence.Messages;
 using Messaging.Persistence.Messages.Reads;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -124,7 +123,7 @@ public sealed class MessageListTests
 
         Assert.NotNull(page1);
         Assert.NotNull(page2);
-        var overlap = page1!.Items.Select(item => item.Id).Intersect(page2!.Items.Select(item => item.Id)).ToArray();
+        var overlap = page1.Items.Select(item => item.Id).Intersect(page2.Items.Select(item => item.Id)).ToArray();
         Assert.Empty(overlap);
     }
 
@@ -269,7 +268,7 @@ public sealed class MessageListTests
             JsonOptions);
 
         Assert.NotNull(payload);
-        Assert.Equal(first, payload!.Items[0].Id);
+        Assert.Equal(first, payload.Items[0].Id);
         Assert.Equal(second, payload.Items[1].Id);
     }
 
@@ -297,7 +296,7 @@ public sealed class MessageListTests
             JsonOptions);
 
         Assert.NotNull(payload);
-        Assert.Equal(42, payload!.TotalCount);
+        Assert.Equal(42, payload.TotalCount);
     }
 
     private static PagedReadResult<MessageReadItem> EmptyPage()

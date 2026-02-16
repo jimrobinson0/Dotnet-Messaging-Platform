@@ -2,7 +2,7 @@ using System.Text.Json;
 using Messaging.Core;
 using Messaging.Persistence.Exceptions;
 
-namespace Messaging.Persistence.Messages;
+namespace Messaging.Persistence.Messages.Mapping;
 
 internal static class MessageMapper
 {

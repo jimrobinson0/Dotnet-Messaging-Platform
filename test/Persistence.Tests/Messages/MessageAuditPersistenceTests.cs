@@ -7,7 +7,7 @@ using Messaging.Persistence.Db;
 using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Tests.Infrastructure;
 
-namespace Messaging.Persistence.Tests.Audit;
+namespace Messaging.Persistence.Tests.Messages;
 
 public sealed class MessageAuditPersistenceTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {

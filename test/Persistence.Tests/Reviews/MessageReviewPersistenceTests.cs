@@ -2,19 +2,16 @@ using Dapper;
 using Messaging.Core;
 using Messaging.Persistence.Db;
 using Messaging.Persistence.Exceptions;
-using Messaging.Persistence.Messages;
+using Messaging.Persistence.Messages.Mapping;
+using Messaging.Persistence.Messages.Writes;
 using Messaging.Persistence.Participants;
 using Messaging.Persistence.Reviews;
 using Messaging.Persistence.Tests.Infrastructure;
 
 namespace Messaging.Persistence.Tests.Reviews;
 
-public sealed class MessageReviewPersistenceTests : PostgresTestBase
+public sealed class MessageReviewPersistenceTests(PostgresFixture fixture) : PostgresTestBase(fixture)
 {
-    public MessageReviewPersistenceTests(PostgresFixture fixture) : base(fixture)
-    {
-    }
-
     [Fact]
     [Trait("Category", "Integration")]
     public async Task Insert_approved_review_persists_correctly()

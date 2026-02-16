@@ -10,16 +10,11 @@ namespace Messaging.Persistence.Tests.Infrastructure;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container;
-
-    public PostgresFixture()
-    {
-        _container = new PostgreSqlBuilder("postgres:16-alpine")
-            .WithDatabase("messaging_test")
-            .WithUsername("postgres")
-            .WithPassword("postgres")
-            .Build();
-    }
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine")
+        .WithDatabase("messaging_test")
+        .WithUsername("postgres")
+        .WithPassword("postgres")
+        .Build();
 
     public string ConnectionString => _container.GetConnectionString() + ";Search Path=core";
 
