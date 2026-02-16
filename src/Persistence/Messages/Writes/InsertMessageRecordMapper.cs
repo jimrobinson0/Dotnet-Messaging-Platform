@@ -2,13 +2,13 @@ using Messaging.Core;
 
 namespace Messaging.Persistence.Messages;
 
-internal static class MessageCreateIntentMapper
+internal static class InsertMessageRecordMapper
 {
-    public static MessageCreateIntent ToCreateIntent(Message message, bool requiresApprovalFromRequest)
+    public static InsertMessageRecord ToInsertRecord(Message message, bool requiresApprovalFromRequest)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        return new MessageCreateIntent(
+        return new InsertMessageRecord(
             message.Channel,
             message.Status,
             requiresApprovalFromRequest,

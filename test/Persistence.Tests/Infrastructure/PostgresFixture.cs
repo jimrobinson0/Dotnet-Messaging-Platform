@@ -49,10 +49,10 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         const string sql = """
                            TRUNCATE TABLE
-                             message_audit_events,
-                             message_reviews,
-                             message_participants,
-                             messages
+                             core.message_audit_events,
+                             core.message_reviews,
+                             core.message_participants,
+                             core.messages
                            RESTART IDENTITY CASCADE;
                            """
             ;

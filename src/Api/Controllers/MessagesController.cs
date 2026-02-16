@@ -1,8 +1,8 @@
-using Messaging.Api.Application.Messages;
 using Messaging.Api.Contracts;
 using Messaging.Api.Contracts.Messages;
 using Messaging.Core.Exceptions;
 using Microsoft.AspNetCore.Mvc;
+using ApplicationMessages = Messaging.Application.Messages;
 
 namespace Messaging.Api.Controllers;
 
@@ -12,12 +12,12 @@ public sealed class MessagesController : ControllerBase
 {
     private const string IdempotencyKeyHeaderName = "Idempotency-Key";
 
-    private readonly IMessageApplicationService _messageApplicationService;
-    private readonly IMessageQueryService _messageQueryService;
+    private readonly ApplicationMessages.IMessageApplicationService _messageApplicationService;
+    private readonly ApplicationMessages.IMessageQueryService _messageQueryService;
 
     public MessagesController(
-        IMessageApplicationService messageApplicationService,
-        IMessageQueryService messageQueryService)
+        ApplicationMessages.IMessageApplicationService messageApplicationService,
+        ApplicationMessages.IMessageQueryService messageQueryService)
     {
         _messageApplicationService = messageApplicationService;
         _messageQueryService = messageQueryService;
@@ -40,11 +40,12 @@ public sealed class MessagesController : ControllerBase
                 nameof(idempotencyKeyHeader));
 
         var idempotencyKey = ResolveIdempotencyKey(idempotencyKeyHeader, request.IdempotencyKey);
-        CreateMessageResult createResult =
+        ApplicationMessages.CreateMessageResult createResult =
             await _messageApplicationService.CreateAsync(request.ToCommand(idempotencyKey), cancellationToken);
         var response = createResult.Message.ToResponse();
 
-        if (createResult.WasCreated) return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        if (createResult.Outcome == ApplicationMessages.IdempotencyOutcome.Created)
+            return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
 
         return Ok(response);
     }
@@ -97,7 +98,7 @@ public sealed class MessagesController : ControllerBase
         [FromQuery] ListMessagesQuery query,
         CancellationToken cancellationToken)
     {
-        var result = await _messageQueryService.ListAsync(query, cancellationToken);
+        var result = await _messageQueryService.ListAsync(query.ToApplicationQuery(), cancellationToken);
         return Ok(result.ToResponse());
     }
 

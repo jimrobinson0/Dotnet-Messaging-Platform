@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Messaging.Core;
 
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public sealed record CreateMessageCommand(
     string Channel,
@@ -22,7 +22,7 @@ public sealed record CreateMessageCommand(
 
 public sealed record CreateMessageResult(
     Message Message,
-    bool WasCreated);
+    IdempotencyOutcome Outcome);
 
 public sealed record MessageParticipantInput(
     string Role,

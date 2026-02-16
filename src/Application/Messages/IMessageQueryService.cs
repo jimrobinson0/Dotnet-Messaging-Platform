@@ -1,6 +1,4 @@
-using Messaging.Api.Contracts.Messages;
-
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public interface IMessageQueryService
 {

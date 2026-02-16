@@ -1,4 +1,4 @@
-namespace Messaging.Api.Application;
+namespace Messaging.Application;
 
 public sealed class BadRequestException : Exception
 {

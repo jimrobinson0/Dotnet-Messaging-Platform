@@ -2,7 +2,7 @@ using Messaging.Core;
 
 namespace Messaging.Persistence.Messages;
 
-public sealed record MessageParticipantPrototype(
+internal sealed record MessageParticipantPrototype(
     Guid Id,
     MessageParticipantRole Role,
     string Address,

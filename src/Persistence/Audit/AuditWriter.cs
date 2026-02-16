@@ -10,7 +10,7 @@ namespace Messaging.Persistence.Audit;
 public sealed class AuditWriter
 {
     private const string InsertSql = """
-                                     insert into message_audit_events (
+                                     insert into core.message_audit_events (
                                        id,
                                        message_id,
                                        event_type,
@@ -44,7 +44,7 @@ public sealed class AuditWriter
         {
             auditEvent.Id,
             auditEvent.MessageId,
-            auditEvent.EventType,
+            EventType = auditEvent.EventType.Value,
             FromStatus = auditEvent.FromStatus?.ToString(),
             ToStatus = auditEvent.ToStatus?.ToString(),
             auditEvent.ActorType,

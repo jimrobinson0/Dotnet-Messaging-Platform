@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Persistence\Messaging.Persistence.csproj"/>
         <ProjectReference Include="..\Core\Messaging.Core.csproj"/>
     </ItemGroup>
 </Project>

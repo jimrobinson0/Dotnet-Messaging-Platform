@@ -1,4 +1,4 @@
-using Messaging.Api.Application.Messages;
+using Messaging.Application.Messages;
 using Messaging.Core;
 
 namespace Messaging.Api.Contracts.Messages;
@@ -44,6 +44,24 @@ public static class MessageContractMappings
             request.ActorId,
             request.DecidedAt,
             request.Notes);
+    }
+
+    public static Messaging.Application.Messages.ListMessagesQuery ToApplicationQuery(this ListMessagesQuery request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new Messaging.Application.Messages.ListMessagesQuery
+        {
+            Page = request.Page,
+            PageSize = request.PageSize,
+            Status = request.Status,
+            Channel = request.Channel,
+            CreatedFrom = request.CreatedFrom,
+            CreatedTo = request.CreatedTo,
+            SentFrom = request.SentFrom,
+            SentTo = request.SentTo,
+            RequiresApproval = request.RequiresApproval
+        };
     }
 
     public static MessageResponse ToResponse(this Message message)

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Messaging.Api.Application.Messages;
+using Messaging.Application.Messages;
 using Messaging.Core;
 using Messaging.Core.Exceptions;
 using Microsoft.AspNetCore.Hosting;
@@ -25,7 +25,7 @@ public sealed class CreateMessageApiContractTests
 
         service.CreateAsync(Arg.Do<CreateMessageCommand>(command => capturedCommand = command),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, true)));
+            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, IdempotencyOutcome.Created)));
 
         await using var factory = new MessagingApiFactory(service);
         using var client = factory.CreateClient();
@@ -61,7 +61,7 @@ public sealed class CreateMessageApiContractTests
         var replayedMessage = BuildMessage("replay-key");
 
         service.CreateAsync(Arg.Any<CreateMessageCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CreateMessageResult(replayedMessage, false)));
+            .Returns(Task.FromResult(new CreateMessageResult(replayedMessage, IdempotencyOutcome.Replayed)));
 
         await using var factory = new MessagingApiFactory(service);
         using var client = factory.CreateClient();
@@ -139,7 +139,7 @@ public sealed class CreateMessageApiContractTests
 
         service.CreateAsync(Arg.Do<CreateMessageCommand>(command => capturedCommand = command),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, true)));
+            .Returns(Task.FromResult(new CreateMessageResult(createdMessage, IdempotencyOutcome.Created)));
 
         await using var factory = new MessagingApiFactory(service);
         using var client = factory.CreateClient();

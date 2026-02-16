@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Messaging.Api.Application;
+using Messaging.Application;
 using Messaging.Core.Exceptions;
 using Messaging.Persistence.Exceptions;
 using Microsoft.AspNetCore.Mvc;

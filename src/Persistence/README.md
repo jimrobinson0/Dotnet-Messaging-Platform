@@ -78,14 +78,11 @@ Rules:
 
 * `messages.idempotency_key` is nullable.
 * A partial unique index enforces uniqueness only when a key is present.
-* Create uses `INSERT ... ON CONFLICT DO UPDATE ... RETURNING id` to guarantee MVCC-safe idempotency under concurrency.
-* On conflict, a no-op update is performed to force row-level locking and the existing message `id` is returned.
-* The insert statement always returns a message id; no follow-up lookup is required.
+* Create uses `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`.
+* On conflict, a no-op update (`updated_at = now()`) is applied and the existing row id is returned in the same statement.
+* The statement returns an `Inserted` flag derived from `xmax = 0`.
 * Participants and enqueue audit records are inserted **only** when the message row was newly created.
 * Replay is read-only with respect to message content, participants, and lifecycle state.
-
-The `DO UPDATE … RETURNING` pattern is intentionally used instead of `DO NOTHING` to eliminate race conditions under
-PostgreSQL MVCC during concurrent retries.
 
 ---
 

@@ -20,10 +20,10 @@ public sealed class MessageWriterGuardrailTests
         Assert.Matches(@"on\s+conflict\s+\(idempotency_key\)", sql);
         Assert.Matches(@"do\s+update", sql);
         Assert.Matches(@"set\s+updated_at\s*=\s*now\(\)", sql);
+        Assert.Matches(
+            new Regex(@"\(\s*xmax\s*=\s*0\s*\)\s+as\s+inserted", RegexOptions.IgnoreCase),
+            sql);
         Assert.DoesNotMatch(@"set\s+id\s*=", sql);
-
-        // Insert vs replay discriminator
-        Assert.Matches(@"\(\s*xmax\s*=\s*0\s*\)", sql);
 
         // Must return identity
         Assert.Matches(@"returning\s+.*\bid\b", sql);
@@ -58,7 +58,7 @@ public sealed class MessageWriterGuardrailTests
         Assert.DoesNotContain("set references_header", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotMatch(@"@\bId\b", insertSql);
         Assert.Contains("returning id", insertSql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("WasCreated", insertSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Inserted", insertSql, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ExtractInsertColumns(string insertSql)

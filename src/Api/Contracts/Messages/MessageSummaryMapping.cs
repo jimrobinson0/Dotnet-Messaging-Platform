@@ -1,4 +1,4 @@
-using Messaging.Api.Application.Messages;
+using Messaging.Application.Messages;
 using Messaging.Api.Contracts;
 
 namespace Messaging.Api.Contracts.Messages;

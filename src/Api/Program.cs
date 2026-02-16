@@ -1,11 +1,6 @@
 using System.Text.Json.Serialization;
-using Messaging.Api.Application.Messages;
+using Messaging.Api.DependencyInjection;
 using Messaging.Api.Infrastructure.Http;
-using Messaging.Persistence.Audit;
-using Messaging.Persistence.Db;
-using Messaging.Persistence.Messages;
-using Messaging.Persistence.Participants;
-using Messaging.Persistence.Reviews;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,16 +11,7 @@ builder.Services.AddHealthChecks();
 
 var connectionString = ResolveConnectionString(builder.Configuration);
 
-builder.Services.AddSingleton<DbConnectionFactory>(_ => new DbConnectionFactory(connectionString));
-builder.Services.AddScoped<MessageReader>();
-builder.Services.AddScoped<MessageWriter>();
-builder.Services.AddScoped<ParticipantWriter>();
-builder.Services.AddScoped<ReviewWriter>();
-builder.Services.AddScoped<AuditWriter>();
-builder.Services.AddScoped<MessageRepository>();
-builder.Services.AddScoped<IMessageReadRepository, MessageReadRepository>();
-builder.Services.AddScoped<IMessageApplicationService, MessageApplicationService>();
-builder.Services.AddScoped<IMessageQueryService, MessageQueryService>();
+builder.Services.AddMessaging(connectionString);
 
 var app = builder.Build();
 

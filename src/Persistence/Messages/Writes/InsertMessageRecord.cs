@@ -3,7 +3,7 @@ using Messaging.Core;
 
 namespace Messaging.Persistence.Messages;
 
-public sealed record MessageCreateIntent(
+internal sealed record InsertMessageRecord(
     string Channel,
     MessageStatus Status,
     bool RequiresApproval,

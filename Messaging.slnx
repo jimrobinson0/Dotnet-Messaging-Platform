@@ -6,6 +6,9 @@
     <Folder Name="/src/Core/">
         <Project Path="src/Core/Messaging.Core.csproj" />
     </Folder>
+    <Folder Name="/src/Application/">
+        <Project Path="src/Application/Messaging.Application.csproj" />
+    </Folder>
     <Folder Name="/src/Persistence/">
         <Project Path="src/Persistence/Messaging.Persistence.csproj" />
     </Folder>
@@ -16,6 +19,9 @@
     <Folder Name="/test/" />
     <Folder Name="/test/Api.Tests/">
         <Project Path="test/Api.Tests/Messaging.Api.Tests.csproj" />
+    </Folder>
+    <Folder Name="/test/Architecture.Tests/">
+        <Project Path="test/Architecture.Tests/Messaging.Architecture.Tests.csproj" />
     </Folder>
     <Folder Name="/test/Core.Tests/">
         <Project Path="test/Core.Tests/Messaging.Core.Tests.csproj" />

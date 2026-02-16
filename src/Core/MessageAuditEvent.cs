@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Messaging.Core.Audit;
 
 namespace Messaging.Core;
 
@@ -7,7 +8,7 @@ public sealed class MessageAuditEvent
     public MessageAuditEvent(
         Guid id,
         Guid messageId,
-        string eventType,
+        AuditEventType eventType,
         MessageStatus? fromStatus,
         MessageStatus? toStatus,
         string actorType,
@@ -15,7 +16,6 @@ public sealed class MessageAuditEvent
         DateTimeOffset occurredAt,
         JsonElement? metadataJson)
     {
-        ArgumentNullException.ThrowIfNull(eventType);
         ArgumentNullException.ThrowIfNull(actorType);
         ArgumentNullException.ThrowIfNull(actorId);
 
@@ -32,7 +32,7 @@ public sealed class MessageAuditEvent
 
     public Guid Id { get; }
     public Guid MessageId { get; }
-    public string EventType { get; }
+    public AuditEventType EventType { get; }
     public MessageStatus? FromStatus { get; }
     public MessageStatus? ToStatus { get; }
     public string ActorType { get; }

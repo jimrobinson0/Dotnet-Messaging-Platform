@@ -298,12 +298,12 @@ public sealed class MessageClaimTests : PostgresTestBase
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
         var messageWriter = new MessageWriter();
 
-        MessageInsertResult firstInsert;
+        (Guid MessageId, bool Inserted) firstInsert;
         var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             firstInsert = await messageWriter.InsertIdempotentAsync(
-                MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
+                InsertMessageRecordMapper.ToInsertRecord(firstMessage, false),
                 uow.Transaction);
             await uow.CommitAsync();
         }
@@ -315,17 +315,17 @@ public sealed class MessageClaimTests : PostgresTestBase
 
         await Task.Delay(25);
 
-        MessageInsertResult replayInsert;
+        (Guid MessageId, bool Inserted) replayInsert;
         var replayMessage = TestData.CreatePendingApprovalMessage(Guid.NewGuid(), idempotencyKey);
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
         {
             replayInsert = await messageWriter.InsertIdempotentAsync(
-                MessageCreateIntentMapper.ToCreateIntent(replayMessage, true),
+                InsertMessageRecordMapper.ToInsertRecord(replayMessage, true),
                 uow.Transaction);
             await uow.CommitAsync();
         }
 
-        Assert.False(replayInsert.WasCreated);
+        Assert.False(replayInsert.Inserted);
         Assert.Equal(firstInsert.MessageId, replayInsert.MessageId);
 
         var afterReplay = await repository.GetByIdAsync(firstInsert.MessageId);

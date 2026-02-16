@@ -11,7 +11,7 @@ using Npgsql;
 
 namespace Messaging.Persistence.Messages;
 
-public sealed class MessageRepository
+public sealed class MessageRepository : IMessageRepository
 {
     private const string InvalidReplyTargetErrorCode = "INVALID_REPLY_TARGET";
     internal const string ClaimNextApprovedSql = """
@@ -86,27 +86,29 @@ public sealed class MessageRepository
         _auditWriter = auditWriter;
     }
 
-    public async Task<MessageCreateResult> CreateAsync(
-        MessageCreateIntent createIntent,
-        IReadOnlyCollection<MessageParticipantPrototype> participants,
+    public async Task<(Message Message, bool Inserted)> InsertAsync(
+        Message message,
+        bool requiresApprovalFromRequest,
         Func<Guid, MessageAuditEvent> auditEventFactory,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(createIntent);
-        ArgumentNullException.ThrowIfNull(participants);
+        ArgumentNullException.ThrowIfNull(message);
         ArgumentNullException.ThrowIfNull(auditEventFactory);
 
-        MessageInsertResult insertResult;
+        var record = InsertMessageRecordMapper.ToInsertRecord(message, requiresApprovalFromRequest);
+        var participants = ParticipantPrototypeMapper.FromCore(message.Participants);
+
+        (Guid MessageId, bool Inserted) insertResult;
         await using (var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken))
         {
             var resolvedCreateIntent =
-                await ResolveReplyThreadingAsync(createIntent, uow.Transaction, cancellationToken);
+                await ResolveReplyThreadingAsync(record, uow.Transaction, cancellationToken);
 
             insertResult = await _messageWriter.InsertIdempotentAsync(
                 resolvedCreateIntent,
                 uow.Transaction,
                 cancellationToken);
-            if (insertResult.WasCreated)
+            if (insertResult.Inserted)
             {
                 var persistedParticipants = ParticipantPrototypeMapper.Bind(insertResult.MessageId, participants);
                 var persistedAuditEvent = auditEventFactory(insertResult.MessageId);
@@ -120,16 +122,16 @@ public sealed class MessageRepository
         }
 
         var persisted = await GetByIdAsync(insertResult.MessageId, cancellationToken);
-        return new MessageCreateResult(persisted, insertResult.WasCreated);
+        return (persisted, insertResult.Inserted);
     }
 
-    private async Task<MessageCreateIntent> ResolveReplyThreadingAsync(
-        MessageCreateIntent createIntent,
+    private async Task<InsertMessageRecord> ResolveReplyThreadingAsync(
+        InsertMessageRecord record,
         DbTransaction transaction,
         CancellationToken cancellationToken)
     {
-        if (createIntent.ReplyToMessageId is null)
-            return createIntent with
+        if (record.ReplyToMessageId is null)
+            return record with
             {
                 ReplyToMessageId = null,
                 InReplyTo = null,
@@ -137,7 +139,7 @@ public sealed class MessageRepository
             };
 
         var replyTarget =
-            await _messageReader.GetReplyTargetAsync(createIntent.ReplyToMessageId.Value, transaction, cancellationToken);
+            await _messageReader.GetReplyTargetAsync(record.ReplyToMessageId.Value, transaction, cancellationToken);
         if (!IsValidReplyTarget(replyTarget))
             throw new MessageValidationException(
                 InvalidReplyTargetErrorCode,
@@ -148,9 +150,9 @@ public sealed class MessageRepository
             ? smtpMessageId
             : $"{replyTarget.ReferencesHeader} {smtpMessageId}";
 
-        return createIntent with
+        return record with
         {
-            ReplyToMessageId = createIntent.ReplyToMessageId,
+            ReplyToMessageId = record.ReplyToMessageId,
             InReplyTo = smtpMessageId,
             ReferencesHeader = referencesHeader
         };
@@ -212,10 +214,13 @@ public sealed class MessageRepository
 
         try
         {
-            var row = await uow.Connection.QuerySingleOrDefaultAsync<MessageRow>(
+            var command = new CommandDefinition(
                 ClaimNextApprovedSql,
                 new { WorkerId = workerId },
-                uow.Transaction);
+                uow.Transaction,
+                cancellationToken: cancellationToken);
+
+            var row = await uow.Connection.QuerySingleOrDefaultAsync<MessageRow>(command);
 
             if (row is null)
             {
@@ -224,6 +229,7 @@ public sealed class MessageRepository
             }
 
             var message = MessageMapper.RehydrateMessage(row);
+
             await uow.CommitAsync(cancellationToken);
             return message;
         }

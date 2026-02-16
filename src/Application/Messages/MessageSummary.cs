@@ -1,6 +1,6 @@
 using Messaging.Core;
 
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public sealed class MessageSummary
 {

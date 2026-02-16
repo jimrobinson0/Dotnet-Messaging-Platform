@@ -1,16 +1,16 @@
 using System.Text.Json;
 using Messaging.Core;
-using Messaging.Persistence.Audit;
+using Messaging.Core.Audit;
 using Messaging.Persistence.Messages;
 
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public sealed class MessageApplicationService : IMessageApplicationService
 {
-    private readonly MessageRepository _messageRepository;
+    private readonly IMessageRepository _messageRepository;
 
     public MessageApplicationService(
-        MessageRepository messageRepository)
+        IMessageRepository messageRepository)
     {
         _messageRepository = messageRepository;
     }
@@ -42,15 +42,12 @@ public sealed class MessageApplicationService : IMessageApplicationService
             command.ReplyToMessageId);
         var message = Message.Create(createSpec);
 
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, command.RequiresApproval);
-        var participantPrototypes = ParticipantPrototypeMapper.FromCore(message.Participants);
-
         var actorType = ParseActorType(command.ActorType);
         var actorId = RequireValue(command.ActorId, nameof(command.ActorId));
         Func<Guid, MessageAuditEvent> auditEventFactory = persistedMessageId => new MessageAuditEvent(
             Guid.NewGuid(),
             persistedMessageId,
-            AuditEventTypes.MessageCreated,
+            AuditEventType.MessageCreated,
             fromStatus: null,
             message.Status,
             actorType.ToString(),
@@ -58,13 +55,17 @@ public sealed class MessageApplicationService : IMessageApplicationService
             occurredAt: DateTimeOffset.UtcNow,
             metadataJson: JsonSerializer.SerializeToElement(new { command.RequiresApproval }));
 
-        MessageCreateResult result = await _messageRepository.CreateAsync(
-            createIntent,
-            participantPrototypes,
+        var (persistedMessage, inserted) = await _messageRepository.InsertAsync(
+            message,
+            command.RequiresApproval,
             auditEventFactory,
             cancellationToken);
 
-        return new CreateMessageResult(result.Message, result.WasCreated);
+        var outcome = inserted
+            ? IdempotencyOutcome.Created
+            : IdempotencyOutcome.Replayed;
+
+        return new CreateMessageResult(persistedMessage, outcome);
     }
 
     public async Task<Message> ApproveAsync(
@@ -75,7 +76,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
         return await ApplyReviewAsync(
             messageId,
             command,
-            AuditEventTypes.MessageApproved,
+            AuditEventType.MessageApproved,
             ReviewDecision.Approved,
             (message, reviewId, decidedBy, decidedAt, notes, actorType) =>
                 message.Approve(reviewId, decidedBy, decidedAt, notes, actorType),
@@ -90,7 +91,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
         return await ApplyReviewAsync(
             messageId,
             command,
-            AuditEventTypes.MessageRejected,
+            AuditEventType.MessageRejected,
             ReviewDecision.Rejected,
             (message, reviewId, decidedBy, decidedAt, notes, actorType) =>
                 message.Reject(reviewId, decidedBy, decidedAt, notes, actorType),
@@ -107,7 +108,7 @@ public sealed class MessageApplicationService : IMessageApplicationService
     private async Task<Message> ApplyReviewAsync(
         Guid messageId,
         ReviewMessageCommand command,
-        string eventType,
+        AuditEventType eventType,
         ReviewDecision decision,
         Func<Message, Guid, string, DateTimeOffset, string?, ActorType, ReviewDecisionResult> applyDecision,
         CancellationToken cancellationToken)

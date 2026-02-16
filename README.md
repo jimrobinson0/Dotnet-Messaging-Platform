@@ -1,5 +1,3 @@
----
-
 # Messaging
 
 Messaging is an open-source, infrastructure-focused **email messaging control plane** designed to reliably queue, review, deliver, and observe outbound messages.
@@ -20,14 +18,14 @@ It is **not** an ESP replacement and does not attempt to be one.
 Messaging provides:
 
 * A hardened **domain layer** for:
-
   * human approval workflows
   * lifecycle enforcement
   * audit history
 * A SQL-first persistence layer
-* Worker-based delivery with explicit retries and state transitions
-* Idempotent enqueue semantics
-* A single HTTP API surface for orchestration
+* A dedicated application orchestration layer
+* Worker-based delivery with explicit retries and atomic claims
+* Deterministic idempotent enqueue semantics
+* A single HTTP API surface
 
 Think of it as the part *between* your application and your email provider where reliability, intent, and accountability live.
 
@@ -51,40 +49,39 @@ If you need a full ESP, this project is probably not what you're looking for.
 ## High-Level Architecture
 
 ```
+
 Messaging
-├─ Api          # thin HTTP orchestration layer
-├─ Core         # domain model & lifecycle rules
+├─ Api          # thin HTTP surface
+├─ Application  # use-case orchestration & result mapping
 ├─ Persistence  # SQL-first data access & rehydration (Dapper)
+├─ Core         # domain model & lifecycle rules
 ├─ Workers      # background delivery processing
 └─ ui           # React-based control plane (not .NET)
-```
+
+````
+
+This is a **pragmatic layered architecture**, not pure Clean Architecture:
+
+* Dependencies flow inward
+* Core is isolated
+* Persistence reflects Core
+* Application orchestrates use cases
+* API and Workers are delivery mechanisms
 
 ---
 
-## Core Principles
-
-* **Approval is a state gate**, not a checkbox
-* **Workers only process approved messages**
-* **UI never owns business logic**
-* **API never owns business logic**
-* **Persistence is explicit and SQL-first**
-* **Lifecycle rules live only in Core**
-* **Delivery failures are observable, not silent**
-* **The database is the source of truth**
-
----
-
-## Project Structure & Responsibilities
+## Layer Responsibilities
 
 ### Messaging.Core
 
 Owns:
 
+* Message aggregate
 * Lifecycle state machine
 * Domain invariants
-* Aggregate behavior
 * Approval semantics
-* State transition rules
+* State transition guards
+* Domain enums & exceptions
 
 Contains:
 
@@ -92,7 +89,7 @@ Contains:
 * No HTTP
 * No infrastructure concerns
 
-Core decides *what is allowed*, not *how it is stored*.
+Core decides **what is allowed**.
 
 ---
 
@@ -101,17 +98,51 @@ Core decides *what is allowed*, not *how it is stored*.
 Owns:
 
 * All SQL
-* All transactions
+* Transactions
 * Concurrency control
-* Rehydration of Core aggregates
-* Dapper + PostgreSQL integration
+* Aggregate rehydration
+* Idempotency resolution at DB level
+* Worker claiming logic
 
-Contains:
+Persistence returns database facts only.
 
-* No lifecycle rules
-* No business decisions
+For enqueue:
 
-Persistence reflects Core — it does not interpret it.
+```csharp
+(Message Message, bool Inserted)
+````
+
+`Inserted` represents a pure DB truth — whether a new row was created.
+
+Persistence does not interpret business semantics.
+
+---
+
+### Messaging.Application
+
+Owns:
+
+* Use-case orchestration
+* Mapping DB facts → domain outcomes
+* Mapping outcomes → API semantics
+* Idempotency outcome interpretation
+
+For enqueue:
+
+```csharp
+Inserted → IdempotencyOutcome.Created
+Not Inserted → IdempotencyOutcome.Replayed
+```
+
+Application owns the meaning of idempotency.
+
+It contains:
+
+* No SQL
+* No HTTP
+* No infrastructure code
+
+It coordinates.
 
 ---
 
@@ -121,13 +152,14 @@ Owns:
 
 * HTTP endpoints
 * Request validation
-* Idempotency enforcement
-* Orchestration between Core and Persistence
+* Header/body idempotency enforcement
+* Mapping Application outcomes → HTTP responses
 
-Contains:
+Mapping rules:
 
-* No SQL
-* No lifecycle logic
+* `Created` → 201 Created
+* `Replayed` → 200 OK
+* Header/body mismatch → 400 BadRequest
 
 The API is intentionally thin.
 
@@ -138,141 +170,116 @@ The API is intentionally thin.
 Owns:
 
 * Claiming eligible messages
-* Transitioning `Approved → Sending → Sent/Failed`
-* Delivery retry mechanics
-* Transport integration (SMTP / provider)
+* Atomic transition `Approved → Sending`
+* Delivery integration
+* Retry mechanics
 
 Workers never:
 
 * Approve messages
-* Bypass lifecycle rules
-* Mutate frozen content
+* Mutate content
+* Bypass lifecycle invariants
 
 ---
 
 ## Dependency Rules (Non-Negotiable)
 
 ```
-Messaging.Api → Messaging.Persistence → Messaging.Core
+Messaging.Api → Messaging.Application → Messaging.Persistence → Messaging.Core
 Messaging.Workers → Messaging.Persistence → Messaging.Core
 ```
 
-Core has no dependencies.
+Rules:
 
-Persistence depends only on Core.
-
-API and Workers orchestrate.
+* Core has zero dependencies.
+* Persistence depends only on Core.
+* Application depends on Persistence and Core.
+* API depends on Application.
+* Workers orchestrate Persistence + Core directly.
+* No reverse dependencies allowed.
 
 ---
 
-## Persistence Model (Important)
+## Idempotent Enqueue (Deterministic)
 
-The database is authoritative for:
+Message creation supports safe client retries.
 
-* `created_at`
-* persisted lifecycle state
+Header (preferred):
+
+```
+Idempotency-Key
+```
+
+Body fallback:
+
+```
+idempotencyKey
+```
+
+Rules:
+
+* If both present and differ → 400
+* Same key replay → original message returned
+* Replay → HTTP 200
+* New insert → HTTP 201
+* No key → normal create
+
+Persistence enforces uniqueness.
+
+Application interprets insert result.
+
+API maps to HTTP.
+
+There is no HTTP leakage into Persistence.
+
+---
+
+## Persistence Model
+
+SQL-first.
+Explicit migrations.
+Dapper only.
+
+Core tables:
+
+1. `core.messages`
+2. `core.message_participants`
+3. `core.message_reviews`
+4. `core.message_audit_events`
+
+Database is authoritative for:
+
+* created timestamps
 * concurrency fields
-* claim ownership fields
+* claim fields
+* final persisted lifecycle state
 
-Explicit rules:
-
-* Core must not fabricate DB-owned values
-* Persistence must not override DB defaults
-* Creation ≠ persistence
-* Rehydration faithfully reflects DB state
+Core must not fabricate DB-owned values.
 
 ---
 
-## Lifecycle Source of Truth
+## Golden Mental Model
 
-* `Messaging.Core` enums are authoritative
-* Persistence must align strictly with Core lifecycle definitions
-* Workers must respect allowed transition rules
-* Approval does not mutate content
-
----
-
-## Idempotent Enqueue Contract
-
-Message creation supports an optional idempotency key to make client retries safe.
-
-* Header: `Idempotency-Key` (preferred)
-* Body field: `idempotencyKey` (fallback)
-* If both are present and differ, API returns `400 Bad Request`
-* Same key replay returns the original message (`200 OK`) without creating new rows
-* New key (or no key) behaves as normal create (`201 Created`)
-
-Client guidance:
-
-* Generate high-entropy keys
-* Reuse a key only when retrying the same logical enqueue
-* Do not reuse keys across unrelated messages
-
----
-
-## Audit Metadata Responsibility
-
-* Persistence stores audit metadata opaquely
-* Persistence does **not** validate or interpret audit metadata
-* Metadata shape is the responsibility of Core (for lifecycle transitions)
-* Metadata shape is the responsibility of API / Workers (for actor context)
+> Messages are immutable artifacts.
+> Approval gates execution.
+> Workers execute approved artifacts.
+> Persistence records facts.
+> Application interprets outcomes.
+> API exposes results.
+> The database tells the story.
 
 ---
 
 ## Current Status
 
-Messaging is in early development.
+Messaging is early-stage and architecture-focused.
 
-What exists today:
+Breaking internal changes are expected while foundations are finalized.
 
-* Explicit solution structure
-* Hardened Core lifecycle and approval model
-* SQL-first persistence layer
-* Idempotent enqueue semantics
-* Worker scaffolding
-
-What does not exist yet:
-
-* Production-ready UI
-* Production-hardened delivery integrations
-* Observability dashboards
-
-Expect breaking changes while foundations are finalized.
-
----
-
-## Who This Is For
-
-* Engineers who need reliable outbound email
-* Teams that require **human review** before sending
-* Operators who value inspectability over magic
-* OSS contributors who appreciate clarity and restraint
-
----
-
-## Contributing
-
-Contributions are welcome.
-
-Before opening a PR:
-
-1. Keep changes scoped and explicit
-2. Prefer clarity over abstraction
-3. Avoid broadening scope without discussion
-
-If you’re unsure whether something belongs, open an issue first.
+The goal is structural clarity over early stability.
 
 ---
 
 ## License
 
-MIT (expected — subject to final confirmation)
-
----
-
-## Attribution
-
-Messaging is maintained by the original author(s) and open-source contributors.
-Organizational affiliation is intentionally de-emphasized to keep the project neutral and approachable.
-
----
+MIT (expected — subject to confirmation)

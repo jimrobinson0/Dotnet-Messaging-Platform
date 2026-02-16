@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Messaging.Core;
+using Messaging.Core.Audit;
 
 namespace Messaging.Persistence.Tests.Infrastructure;
 
@@ -115,7 +116,7 @@ internal static class TestData
         Guid messageId,
         MessageStatus? fromStatus,
         MessageStatus? toStatus,
-        string eventType,
+        AuditEventType eventType,
         JsonElement? metadata = null)
     {
         return new MessageAuditEvent(

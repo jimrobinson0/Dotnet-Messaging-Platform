@@ -1,4 +1,4 @@
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public sealed class PagedResult<T>
 {

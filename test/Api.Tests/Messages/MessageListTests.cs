@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Messaging.Api.Application.Messages;
+using Messaging.Application.Messages;
 using Messaging.Api.Contracts;
 using Messaging.Api.Contracts.Messages;
 using Messaging.Core;

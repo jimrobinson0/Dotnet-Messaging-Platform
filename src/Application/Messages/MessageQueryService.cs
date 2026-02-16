@@ -1,9 +1,8 @@
-using Messaging.Api.Application;
-using Messaging.Api.Contracts.Messages;
+using Messaging.Application;
 using Messaging.Persistence.Messages;
 using Messaging.Persistence.Messages.Reads;
 
-namespace Messaging.Api.Application.Messages;
+namespace Messaging.Application.Messages;
 
 public sealed class MessageQueryService : IMessageQueryService
 {

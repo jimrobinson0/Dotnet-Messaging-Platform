@@ -1,6 +1,6 @@
-# 🧼 Early-Phase Simplicity Mandate (Critical)
+# Early-Phase Clean Architecture Mandate (Critical)
 
-Messaging is in its **earliest development phase**.
+Messaging is in its earliest development phase.
 
 There are:
 
@@ -8,246 +8,194 @@ There are:
 * No production clients
 * No backward compatibility guarantees
 * No versioning constraints
-* No migration burden beyond internal refactors
+* No migration burden
 
-This has architectural consequences.
+Backward compatibility is not a tradeoff dimension.
+
+If a change improves correctness or clarity:
+
+→ Replace the old implementation.
+→ Update call sites.
+→ Update tests.
+→ Remove superseded code.
+
+Never preserve incorrect structure for imaginary clients.
 
 ---
 
-## 🚫 Absolutely Prohibited
+# 🏗 Pragmatic Layered Architecture (Authoritative)
 
-When implementing new features, patches, or review-driven revisions, AI agents and contributors must NOT:
+Messaging uses a **strict inward dependency model**:
 
-* Add backward compatibility shims
-* Add dual-path logic (old + new behavior)
-* Introduce nullable fallbacks solely to preserve hypothetical legacy flows
+````
+
+Messaging.Api → Messaging.Application → Messaging.Persistence → Messaging.Core
+Messaging.Workers → Messaging.Persistence → Messaging.Core
+
+```
+
+Layer purposes:
+
+### Core
+Domain invariants and lifecycle rules only.
+
+### Persistence
+SQL + rehydration + DB facts only.
+
+### Application
+Use-case orchestration.
+Maps DB facts → domain outcomes.
+
+### API
+Maps outcomes → HTTP.
+
+### Workers
+Execute lifecycle transitions + delivery.
+
+No layer may leak responsibilities upward or downward.
+
+---
+
+# 🧠 Idempotency Boundary (Critical)
+
+Persistence returns:
+
+```
+
+(Message Message, bool Inserted)
+
+```
+
+That is a **database fact** only.
+
+Application maps:
+
+```
+
+Inserted → IdempotencyOutcome.Created
+Not Inserted → IdempotencyOutcome.Replayed
+
+```
+
+API maps:
+
+```
+
+Created → 201
+Replayed → 200
+
+```
+
+Persistence must never:
+
+* Return HTTP status codes
+* Return WasCreated DTOs
+* Return API semantics
+* Interpret idempotency meaning
+
+Application owns idempotency meaning.
+
+---
+
+# 🚫 Absolutely Prohibited
+
+AI agents must NOT:
+
+* Add compatibility shims
+* Add dual-path logic
+* Preserve deprecated shapes
+* Introduce fallback branching
+* Add feature flags for hypothetical users
+* Add transitional lifecycle states
 * Add compatibility DTOs
-* Preserve deprecated property names
-* Introduce feature flags for non-existent consumers
-* Create temporary adapter layers
-* Add defensive branching for prior contract shapes
-* Preserve dead code “just in case”
-* Introduce v1/v2 branching logic
-* Add transitional states to lifecycle models
-* Add schema compatibility layers
 * Preserve unused parameters
-* Add optional overloads solely to avoid breaking changes
-* Implement compatibility migrations unless explicitly requested
+* Widen contracts to avoid breaking changes
+* Add API semantics to Persistence
+* Leak HTTP concerns into Application
+* Leak lifecycle rules into Persistence
 
-If a change improves correctness or clarity, **replace the old design outright**.
+If structure is wrong:
 
-Do not preserve incorrect structure for imaginary clients.
-
----
-
-## 🔥 Required Bias: Replace, Don’t Accommodate
-
-If a feature review identifies:
-
-* A flawed abstraction
-* A leaky boundary
-* An unnecessary parameter
-* An incorrect lifecycle rule
-* A naming mistake
-* A contract inconsistency
-
-The correct action is:
-
-> Delete or refactor the old implementation.
-
-Not:
-
-> Add compatibility handling.
+Delete and replace.
 
 ---
 
-## 🧠 Design Authority Rule
+# ✂ Refactor Default
 
-The canonical project context defines:
+When revising:
 
-* Lifecycle invariants
-* Dependency rules
-* Persistence ownership
-* Architectural scope
-* Explicit non-goals
+* Replace old structures outright.
+* Update all call sites.
+* Update tests.
+* Remove superseded abstractions.
 
-If proposed compatibility logic conflicts with the canonical design, the canonical design wins.
-
-Never bend the architecture to preserve temporary code.
+Never layer new logic on top of flawed structure.
 
 ---
 
-## ✂ Clean Refactor Preference
+# 🧱 Mandatory Schema Qualification Rule
 
-In this phase:
+All SQL must:
 
-* Breaking internal APIs is acceptable.
-* Renaming properties is acceptable.
-* Removing parameters is acceptable.
-* Rewriting persistence SQL is acceptable.
-* Reworking DTOs is acceptable.
+* Use `core.` schema explicitly.
+* Fully qualify tables.
+* Fully qualify foreign keys.
+* Fully qualify indexes.
+* Fully qualify constraints.
+* Fully qualify sequences.
+* Fully qualify joins.
+* Fully qualify ON CONFLICT targets.
 
-As long as:
+Never rely on `search_path`.
 
-* Architectural boundaries remain intact
-* Lifecycle invariants remain correct
-* Tests are updated accordingly
+Unqualified SQL is invalid.
 
 ---
 
-## 🧪 Test Alignment Rule
+# 🧪 Test Alignment Rule
 
-Tests must evolve with the design.
+Tests must reflect current architecture.
 
 Do NOT:
 
-* Preserve old test expectations for compatibility.
-* Add conditional assertions for legacy behavior.
-* Maintain dual test paths.
+* Preserve legacy expectations.
+* Add dual test paths.
+* Maintain conditional assertions.
 
-If behavior changes intentionally, tests must be rewritten to reflect the new truth.
-
----
-
-## 🏗 Schema Evolution Rule
-
-Migrations should:
-
-* Represent the clean, intended schema.
-* Not preserve obsolete columns unless explicitly required.
-* Remove mistaken columns if necessary.
-* Fully qualify all database objects using the `.core` schema.
-
-This is pre-production. Optimize for clarity over continuity.
+If behavior changes intentionally, tests must be rewritten.
 
 ---
 
-# 🧱 Mandatory Schema Qualification Rule (Critical)
+# 🧠 Enforcement Philosophy
 
-All database objects must reside in the `core` schema.
-
-AI agents and contributors must:
-
-* Always reference tables as `core.messages`
-* Always reference tables as `core.message_participants`
-* Always reference tables as `core.message_reviews`
-* Always reference tables as `core.message_audit_events`
-* Always schema-qualify foreign keys
-* Always schema-qualify indexes
-* Always schema-qualify constraints
-* Always schema-qualify sequences
-* Always schema-qualify joins
-* Always schema-qualify `INSERT`, `UPDATE`, `DELETE`, and `SELECT` statements
-* Always schema-qualify references inside CTEs
-* Always schema-qualify `ON CONFLICT` targets
-* Always schema-qualify trigger bindings (if introduced)
-* Never rely on `search_path`
-
-Forbidden:
-
-* Unqualified table names (e.g., `messages`)
-* Mixed qualified and unqualified usage
-* Assumptions about default schema resolution
-* Migration scripts without explicit `core.` prefixes
-
-All SQL must be deterministic and explicit.
-
-If existing SQL omits `core.`, it must be rewritten.
-
-There is no backward compatibility constraint preventing this correction.
-
----
-
-## 🚨 Compatibility Is Not a Decision Variable
-
-Messaging is pre-consumer and pre-production.
-
-AI agents and contributors must **never evaluate backward compatibility as a tradeoff dimension**.
-
-There are:
-
-* No external contracts to preserve
-* No public API guarantees
-* No client upgrade paths
-* No semantic versioning obligations
-* No legacy integrations
-
-Therefore:
-
-* Compatibility is not a factor.
-* Migration cost is not a factor.
-* External breakage is not a factor.
-
-These variables do not exist in this phase.
-
----
-
-## 🧠 Refactor Default
-
-When revising behavior, contracts, schema, or lifecycle logic:
-
-* Replace the old structure.
-* Update all call sites.
-* Update tests.
-* Update migrations if necessary.
-* Ensure all SQL references `core.` schema explicitly.
-
-Do not:
-
-* Introduce conditional branching for old behavior.
-* Maintain dual representations.
-* Add temporary adapters.
-* Preserve deprecated shapes.
-
-The only acceptable state is the clean, current design.
-
----
-
-## 🎯 Governing Rule
-
-If a change makes the system:
-
-* Simpler
-* More correct
-* More aligned with canonical context
-* More explicit
-* Easier to reason about
-
-Then the old implementation must be removed.
-
-Not preserved.
-
----
-
-## 🎯 Overarching Principle
-
-This project values:
+Messaging optimizes for:
 
 * Structural clarity
-* Determinism
-* Explicitness
-* Domain integrity
+* Deterministic behavior
+* Canonical lifecycle correctness
+* Clean boundaries
 * Delete-ability
-* Explicit schema ownership
+* Explicit ownership
 
 Over:
 
-* Stability for hypothetical users
+* Stability for imaginary consumers
 * Defensive compatibility
 * Incremental patch layering
 
 ---
 
-## 🧨 Enforcement Clause for AI Agents
+# 🎯 Governing Rule
 
-When generating or revising code:
+If a change makes the system:
 
-* Do not preserve superseded structures.
-* Do not introduce compatibility indirection.
-* Do not widen contracts unless explicitly required.
-* Prefer surgical deletion over additive layering.
-* Always schema-qualify SQL with `core.`.
+* Simpler
+* More correct
+* More aligned with canonical boundaries
+* More explicit
+* Easier to reason about
 
-If in doubt:
+The old implementation must be removed.
 
-Choose the simpler, cleaner architecture and remove the older design.
+Not preserved.
+```
