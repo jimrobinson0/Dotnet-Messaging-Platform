@@ -25,39 +25,24 @@ public sealed class MessageApplicationService : IMessageApplicationService
         var channel = ParseChannel(command.Channel);
         var contentSource = ParseContentSource(command.ContentSource);
         var participants = BuildParticipants(provisionalMessageId, command.Participants);
+        var createSpec = new MessageCreateSpec(
+            provisionalMessageId,
+            channel,
+            contentSource,
+            command.RequiresApproval,
+            command.TemplateKey,
+            command.TemplateVersion,
+            command.TemplateResolvedAt,
+            command.Subject,
+            command.TextBody,
+            command.HtmlBody,
+            command.TemplateVariables,
+            command.IdempotencyKey,
+            participants,
+            command.ReplyToMessageId);
+        var message = Message.Create(createSpec);
 
-        var message = command.RequiresApproval
-            ? Message.CreatePendingApproval(
-                provisionalMessageId,
-                channel,
-                contentSource,
-                command.TemplateKey,
-                command.TemplateVersion,
-                command.TemplateResolvedAt,
-                command.Subject,
-                command.TextBody,
-                command.HtmlBody,
-                command.TemplateVariables,
-                command.IdempotencyKey,
-                participants)
-            : Message.CreateApproved(
-                provisionalMessageId,
-                channel,
-                contentSource,
-                command.TemplateKey,
-                command.TemplateVersion,
-                command.TemplateResolvedAt,
-                command.Subject,
-                command.TextBody,
-                command.HtmlBody,
-                command.TemplateVariables,
-                command.IdempotencyKey,
-                participants);
-
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, command.RequiresApproval) with
-        {
-            ReplyToMessageId = command.ReplyToMessageId
-        };
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, command.RequiresApproval);
         var participantPrototypes = ParticipantPrototypeMapper.FromCore(message.Participants);
 
         var actorType = ParseActorType(command.ActorType);

@@ -212,22 +212,16 @@ public sealed class CreateMessageApiContractTests
 
     [Fact]
     [Trait("Category", "Contract")]
-    public async Task GetById_returns_reply_metadata_fields_when_present()
+    public async Task GetById_returns_reply_fields_from_message()
     {
         var service = Substitute.For<IMessageApplicationService>();
         var replyToMessageId = Guid.NewGuid();
         var messageId = Guid.NewGuid();
-        const string inReplyTo = "<parent@example.test>";
-        const string referencesHeader = "<root@example.test> <parent@example.test>";
-        const string smtpMessageId = "<child@example.test>";
 
         var message = BuildMessage(
             idempotencyKey: "reply-view-key",
             id: messageId,
-            replyToMessageId: replyToMessageId,
-            inReplyTo: inReplyTo,
-            referencesHeader: referencesHeader,
-            smtpMessageId: smtpMessageId);
+            replyToMessageId: replyToMessageId);
 
         service.GetByIdAsync(messageId, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(message));
@@ -242,23 +236,21 @@ public sealed class CreateMessageApiContractTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(replyToMessageId.ToString(), root.GetProperty("reply_to_message_id").GetString());
-        Assert.Equal(inReplyTo, root.GetProperty("in_reply_to").GetString());
-        Assert.Equal(referencesHeader, root.GetProperty("references_header").GetString());
-        Assert.Equal(smtpMessageId, root.GetProperty("smtp_message_id").GetString());
+        Assert.Null(root.GetProperty("in_reply_to").GetString());
+        Assert.Null(root.GetProperty("references_header").GetString());
+        Assert.Null(root.GetProperty("smtp_message_id").GetString());
     }
 
     private static Message BuildMessage(
         string idempotencyKey,
         Guid? id = null,
-        Guid? replyToMessageId = null,
-        string? inReplyTo = null,
-        string? referencesHeader = null,
-        string? smtpMessageId = null)
+        Guid? replyToMessageId = null)
     {
-        return Message.CreateApproved(
+        return Message.Create(new MessageCreateSpec(
             id ?? Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -268,10 +260,7 @@ public sealed class CreateMessageApiContractTests
             null,
             idempotencyKey,
             Array.Empty<MessageParticipant>(),
-            replyToMessageId,
-            inReplyTo,
-            referencesHeader,
-            smtpMessageId);
+            replyToMessageId));
     }
 
     private sealed class MessagingApiFactory : WebApplicationFactory<Program>

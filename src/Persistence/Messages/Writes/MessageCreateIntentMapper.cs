@@ -21,7 +21,7 @@ internal static class MessageCreateIntentMapper
             message.HtmlBody,
             message.TemplateVariables,
             message.IdempotencyKey,
-            null,
+            message.ReplyToMessageId,
             null,
             null);
     }

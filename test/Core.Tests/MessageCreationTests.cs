@@ -5,17 +5,21 @@ public class MessageCreationTests
     [Fact]
     public void Auto_approved_message_starts_in_Approved_with_unpersisted_timestamps()
     {
-        var message = Message.CreateApproved(
+        var message = Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
             "Test",
             "Hello",
             null,
-            null);
+            null,
+            null,
+            Array.Empty<MessageParticipant>(),
+            null));
 
         Assert.Equal(MessageStatus.Approved, message.Status);
         Assert.Equal(0, message.AttemptCount);
@@ -26,17 +30,21 @@ public class MessageCreationTests
     [Fact]
     public void Approval_required_message_starts_in_PendingApproval_with_unpersisted_timestamps()
     {
-        var message = Message.CreatePendingApproval(
+        var message = Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            true,
             null,
             null,
             null,
             "Test",
             "Hello",
             null,
-            null);
+            null,
+            null,
+            Array.Empty<MessageParticipant>(),
+            null));
 
         Assert.Equal(MessageStatus.PendingApproval, message.Status);
         Assert.Equal(DateTimeOffset.MinValue, message.CreatedAt);
@@ -46,10 +54,11 @@ public class MessageCreationTests
     [Fact]
     public void Idempotency_key_is_trimmed_and_empty_values_become_null()
     {
-        var trimmed = Message.CreateApproved(
+        var trimmed = Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -57,12 +66,15 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            "  abc-key  ");
+            "  abc-key  ",
+            Array.Empty<MessageParticipant>(),
+            null));
 
-        var empty = Message.CreateApproved(
+        var empty = Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -70,7 +82,9 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            "   ");
+            "   ",
+            Array.Empty<MessageParticipant>(),
+            null));
 
         Assert.Equal("abc-key", trimmed.IdempotencyKey);
         Assert.Null(empty.IdempotencyKey);
@@ -81,10 +95,11 @@ public class MessageCreationTests
     {
         var tooLong = new string('x', 129);
 
-        Assert.Throws<ArgumentException>(() => Message.CreateApproved(
+        Assert.Throws<ArgumentException>(() => Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -92,6 +107,54 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            tooLong));
+            tooLong,
+            Array.Empty<MessageParticipant>(),
+            null)));
+    }
+
+    [Fact]
+    public void Reply_to_message_id_is_preserved_from_create_spec()
+    {
+        var replyToMessageId = Guid.NewGuid();
+
+        var message = Message.Create(new MessageCreateSpec(
+            Guid.NewGuid(),
+            "email",
+            MessageContentSource.Direct,
+            false,
+            null,
+            null,
+            null,
+            "Test",
+            "Hello",
+            null,
+            null,
+            null,
+            Array.Empty<MessageParticipant>(),
+            replyToMessageId));
+
+        Assert.Equal(replyToMessageId, message.ReplyToMessageId);
+    }
+
+    [Fact]
+    public void Create_throws_when_participants_is_null()
+    {
+        var spec = new MessageCreateSpec(
+            Id: Guid.NewGuid(),
+            Channel: "email",
+            ContentSource: MessageContentSource.Direct,
+            RequiresApproval: false,
+            TemplateKey: null,
+            TemplateVersion: null,
+            TemplateResolvedAt: null,
+            Subject: "TestSubject",
+            TextBody: "TestBody",
+            HtmlBody: null,
+            TemplateVariables: null,
+            IdempotencyKey: null,
+            Participants: null!,
+            ReplyToMessageId: null);
+
+        Assert.Throws<ArgumentNullException>(() => Message.Create(spec));
     }
 }

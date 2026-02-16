@@ -300,10 +300,11 @@ public sealed class MessageInsertTests : PostgresTestBase
         var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
         var messageWriter = new MessageWriter();
 
-        var firstMessage = Message.CreateApproved(
+        var firstMessage = Message.Create(new MessageCreateSpec(
             firstId,
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -312,12 +313,14 @@ public sealed class MessageInsertTests : PostgresTestBase
             null,
             null,
             key,
-            Array.Empty<MessageParticipant>());
+            Array.Empty<MessageParticipant>(),
+            null));
 
-        var secondMessage = Message.CreateApproved(
+        var secondMessage = Message.Create(new MessageCreateSpec(
             secondId,
             "sms",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -326,7 +329,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             "<p>B</p>",
             null,
             key,
-            Array.Empty<MessageParticipant>());
+            Array.Empty<MessageParticipant>(),
+            null));
 
         MessageInsertResult firstInsert;
         await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
@@ -428,10 +432,11 @@ public sealed class MessageInsertTests : PostgresTestBase
             .Select(async i =>
             {
                 var messageId = Guid.NewGuid();
-                var message = Message.CreateApproved(
+                var message = Message.Create(new MessageCreateSpec(
                     messageId,
                     "email",
                     MessageContentSource.Direct,
+                    false,
                     null,
                     null,
                     null,
@@ -440,7 +445,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                     null,
                     null,
                     key,
-                    Array.Empty<MessageParticipant>());
+                    Array.Empty<MessageParticipant>(),
+                    null));
 
                 await using var uow = await UnitOfWork.BeginAsync(connectionFactory);
                 var result =
@@ -532,10 +538,11 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         var firstId = Guid.NewGuid();
         var firstParticipants = TestData.CreateParticipants(firstId);
-        var firstMessage = Message.CreateApproved(
+        var firstMessage = Message.Create(new MessageCreateSpec(
             firstId,
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -544,7 +551,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             null,
             null,
             key,
-            firstParticipants);
+            firstParticipants,
+            null));
 
         var firstResult = await repository.CreateAsync(
             MessageCreateIntentMapper.ToCreateIntent(firstMessage, false),
@@ -557,10 +565,11 @@ public sealed class MessageInsertTests : PostgresTestBase
 
         var secondId = Guid.NewGuid();
         var secondParticipants = TestData.CreateParticipants(secondId);
-        var secondMessage = Message.CreateApproved(
+        var secondMessage = Message.Create(new MessageCreateSpec(
             secondId,
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -569,7 +578,8 @@ public sealed class MessageInsertTests : PostgresTestBase
             "<p>B</p>",
             null,
             key,
-            secondParticipants);
+            secondParticipants,
+            null));
 
         var replayResult = await repository.CreateAsync(
             MessageCreateIntentMapper.ToCreateIntent(secondMessage, false),
@@ -650,10 +660,11 @@ public sealed class MessageInsertTests : PostgresTestBase
             {
                 var messageId = Guid.NewGuid();
                 var participants = TestData.CreateParticipants(messageId);
-                var message = Message.CreateApproved(
+                var message = Message.Create(new MessageCreateSpec(
                     messageId,
                     "email",
                     MessageContentSource.Direct,
+                    false,
                     null,
                     null,
                     null,
@@ -662,7 +673,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                     null,
                     null,
                     key,
-                    participants);
+                    participants,
+                    null));
 
                 return await repository.CreateAsync(
                     MessageCreateIntentMapper.ToCreateIntent(message, false),
@@ -732,11 +744,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                 });
         }
 
-        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
-        {
-            ReplyToMessageId = replyTargetId
-        };
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false);
 
         var result = await repository.CreateAsync(
             createIntent,
@@ -810,11 +819,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                 });
         }
 
-        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
-        {
-            ReplyToMessageId = replyTargetId
-        };
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false);
 
         var result = await repository.CreateAsync(
             createIntent,
@@ -849,12 +855,9 @@ public sealed class MessageInsertTests : PostgresTestBase
         await ResetDbAsync();
 
         var repository = CreateRepository();
-        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
         var replyTargetId = Guid.NewGuid();
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
-        {
-            ReplyToMessageId = replyTargetId
-        };
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false);
 
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
             createIntent,
@@ -897,11 +900,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                 new { Id = replyTargetId });
         }
 
-        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
-        {
-            ReplyToMessageId = replyTargetId
-        };
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false);
 
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
             createIntent,
@@ -944,11 +944,8 @@ public sealed class MessageInsertTests : PostgresTestBase
                 new { Id = replyTargetId });
         }
 
-        var message = TestData.CreateApprovedMessage(Guid.NewGuid());
-        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false) with
-        {
-            ReplyToMessageId = replyTargetId
-        };
+        var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
+        var createIntent = MessageCreateIntentMapper.ToCreateIntent(message, false);
 
         var exception = await Assert.ThrowsAsync<MessageValidationException>(() => repository.CreateAsync(
             createIntent,
@@ -1089,11 +1086,9 @@ public sealed class MessageInsertTests : PostgresTestBase
                 });
         }
 
-        var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false) with
-        {
-            ReplyToMessageId = replyTargetAId
-        };
+        var firstMessage =
+            TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey, replyTargetAId);
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false);
 
         var firstResult = await repository.CreateAsync(
             firstIntent,
@@ -1105,10 +1100,11 @@ public sealed class MessageInsertTests : PostgresTestBase
                 "MessageCreated"));
 
         var replayMessageId = Guid.NewGuid();
-        var replayMessage = Message.CreateApproved(
+        var replayMessage = Message.Create(new MessageCreateSpec(
             replayMessageId,
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -1117,12 +1113,10 @@ public sealed class MessageInsertTests : PostgresTestBase
             "<p>mutated</p>",
             null,
             idempotencyKey,
-            TestData.CreateParticipants(replayMessageId));
+            TestData.CreateParticipants(replayMessageId),
+            replyTargetBId));
 
-        var replayIntent = MessageCreateIntentMapper.ToCreateIntent(replayMessage, false) with
-        {
-            ReplyToMessageId = replyTargetBId
-        };
+        var replayIntent = MessageCreateIntentMapper.ToCreateIntent(replayMessage, false);
 
         var replayResult = await repository.CreateAsync(
             replayIntent,
@@ -1188,11 +1182,9 @@ public sealed class MessageInsertTests : PostgresTestBase
                 });
         }
 
-        var firstMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false) with
-        {
-            ReplyToMessageId = replyTargetAId
-        };
+        var firstMessage =
+            TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey, replyTargetAId);
+        var firstIntent = MessageCreateIntentMapper.ToCreateIntent(firstMessage, false);
 
         var firstResult = await repository.CreateAsync(
             firstIntent,
@@ -1203,11 +1195,9 @@ public sealed class MessageInsertTests : PostgresTestBase
                 firstMessage.Status,
                 "MessageCreated"));
 
-        var secondMessage = TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey);
-        var secondIntent = MessageCreateIntentMapper.ToCreateIntent(secondMessage, false) with
-        {
-            ReplyToMessageId = replyTargetBId
-        };
+        var secondMessage =
+            TestData.CreateApprovedMessage(Guid.NewGuid(), idempotencyKey, replyTargetBId);
+        var secondIntent = MessageCreateIntentMapper.ToCreateIntent(secondMessage, false);
 
         var replayResult = await repository.CreateAsync(
             secondIntent,

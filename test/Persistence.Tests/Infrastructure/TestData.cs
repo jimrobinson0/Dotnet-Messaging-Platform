@@ -5,12 +5,16 @@ namespace Messaging.Persistence.Tests.Infrastructure;
 
 internal static class TestData
 {
-    public static Message CreatePendingApprovalMessage(Guid messageId, string? idempotencyKey = null)
+    public static Message CreatePendingApprovalMessage(
+        Guid messageId,
+        string? idempotencyKey = null,
+        Guid? replyToMessageId = null)
     {
-        return Message.CreatePendingApproval(
+        return Message.Create(new MessageCreateSpec(
             messageId,
             "email",
             MessageContentSource.Direct,
+            true,
             null,
             null,
             null,
@@ -19,15 +23,20 @@ internal static class TestData
             null,
             null,
             idempotencyKey,
-            CreateParticipants(messageId));
+            CreateParticipants(messageId),
+            replyToMessageId));
     }
 
-    public static Message CreateApprovedMessage(Guid messageId, string? idempotencyKey = null)
+    public static Message CreateApprovedMessage(
+        Guid messageId,
+        string? idempotencyKey = null,
+        Guid? replyToMessageId = null)
     {
-        return Message.CreateApproved(
+        return Message.Create(new MessageCreateSpec(
             messageId,
             "email",
             MessageContentSource.Direct,
+            false,
             null,
             null,
             null,
@@ -36,17 +45,19 @@ internal static class TestData
             "<p>Auto-approved</p>",
             null,
             idempotencyKey,
-            CreateParticipants(messageId));
+            CreateParticipants(messageId),
+            replyToMessageId));
     }
 
     public static Message CreateTemplateMessage(Guid messageId)
     {
         var variablesJson = JsonDocument.Parse("""{"name":"Test","orderId":42}""").RootElement;
 
-        return Message.CreatePendingApproval(
+        return Message.Create(new MessageCreateSpec(
             messageId,
             "email",
             MessageContentSource.Template,
+            true,
             "welcome-email",
             "2.1",
             DateTimeOffset.UtcNow,
@@ -54,15 +65,18 @@ internal static class TestData
             "Hello {{name}}",
             "<p>Hello {{name}}</p>",
             variablesJson,
-            participants: CreateParticipants(messageId));
+            null,
+            CreateParticipants(messageId),
+            null));
     }
 
     public static Message CreateMessageWithoutParticipants(Guid messageId)
     {
-        return Message.CreatePendingApproval(
+        return Message.Create(new MessageCreateSpec(
             messageId,
             "email",
             MessageContentSource.Direct,
+            true,
             null,
             null,
             null,
@@ -70,7 +84,9 @@ internal static class TestData
             "Short message",
             null,
             null,
-            participants: null);
+            null,
+            Array.Empty<MessageParticipant>(),
+            null));
     }
 
     public static IReadOnlyList<MessageParticipant> CreateParticipants(Guid messageId)

@@ -83,7 +83,7 @@ The database is the source of truth for persisted timestamps:
 - API validates request
 - API resolves idempotency key (`Idempotency-Key` header preferred, `idempotencyKey` body fallback)
 - API rejects mismatched header/body keys with `400 Bad Request`
-- API calls Core factory (`CreatePendingApproval` or `CreateApproved`)
+- API maps request data to `MessageCreateSpec` and calls `Message.Create(...)`
 - API calls Persistence to perform atomic idempotent insert
 - API returns `201 Created` for a new message and `200 OK` for replay of the same idempotency key
 - Replay does not mutate message content/status/participants and does not emit duplicate enqueue audit

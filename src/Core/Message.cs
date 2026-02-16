@@ -105,88 +105,26 @@ public sealed class Message
     public string? HtmlBody { get; }
     public JsonElement? TemplateVariables { get; }
     public string? IdempotencyKey { get; }
-    public Guid? ReplyToMessageId { get; init; }
-    public string? InReplyTo { get; init; }
-    public string? ReferencesHeader { get; init; }
-    public string? SmtpMessageId { get; init; }
+    public Guid? ReplyToMessageId { get; }
+    public string? InReplyTo { get; }
+    public string? ReferencesHeader { get; }
+    public string? SmtpMessageId { get; }
     public IReadOnlyList<MessageParticipant> Participants { get; }
 
     /// <summary>
-    ///     Creates a message that requires human approval before delivery.
+    ///     Creates a message aggregate with an initial status derived from approval requirements.
     ///     CreatedAt / UpdatedAt are populated by persistence.
     /// </summary>
-    public static Message CreatePendingApproval(
-        Guid id,
-        string channel,
-        MessageContentSource contentSource,
-        string? templateKey,
-        string? templateVersion,
-        DateTimeOffset? templateResolvedAt,
-        string? subject,
-        string? textBody,
-        string? htmlBody,
-        JsonElement? templateVariables,
-        string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null,
-        Guid? replyToMessageId = null,
-        string? inReplyTo = null,
-        string? referencesHeader = null,
-        string? smtpMessageId = null)
+    public static Message Create(MessageCreateSpec spec)
     {
-        return new Message(
-            id,
-            channel,
-            MessageStatus.PendingApproval,
-            contentSource,
-            DateTimeOffset.MinValue,
-            DateTimeOffset.MinValue,
-            null,
-            null,
-            null,
-            null,
-            0,
-            templateKey,
-            templateVersion,
-            templateResolvedAt,
-            subject,
-            textBody,
-            htmlBody,
-            templateVariables,
-            idempotencyKey,
-            replyToMessageId,
-            inReplyTo,
-            referencesHeader,
-            smtpMessageId,
-            participants);
-    }
+        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentNullException.ThrowIfNull(spec.Participants);
 
-    /// <summary>
-    ///     Creates an auto-approved message that is immediately eligible for delivery.
-    ///     CreatedAt / UpdatedAt are populated by persistence.
-    /// </summary>
-    public static Message CreateApproved(
-        Guid id,
-        string channel,
-        MessageContentSource contentSource,
-        string? templateKey,
-        string? templateVersion,
-        DateTimeOffset? templateResolvedAt,
-        string? subject,
-        string? textBody,
-        string? htmlBody,
-        JsonElement? templateVariables,
-        string? idempotencyKey = null,
-        IEnumerable<MessageParticipant>? participants = null,
-        Guid? replyToMessageId = null,
-        string? inReplyTo = null,
-        string? referencesHeader = null,
-        string? smtpMessageId = null)
-    {
         return new Message(
-            id,
-            channel,
-            MessageStatus.Approved,
-            contentSource,
+            spec.Id,
+            spec.Channel,
+            spec.RequiresApproval ? MessageStatus.PendingApproval : MessageStatus.Approved,
+            spec.ContentSource,
             DateTimeOffset.MinValue,
             DateTimeOffset.MinValue,
             null,
@@ -194,19 +132,19 @@ public sealed class Message
             null,
             null,
             0,
-            templateKey,
-            templateVersion,
-            templateResolvedAt,
-            subject,
-            textBody,
-            htmlBody,
-            templateVariables,
-            idempotencyKey,
-            replyToMessageId,
-            inReplyTo,
-            referencesHeader,
-            smtpMessageId,
-            participants);
+            spec.TemplateKey,
+            spec.TemplateVersion,
+            spec.TemplateResolvedAt,
+            spec.Subject,
+            spec.TextBody,
+            spec.HtmlBody,
+            spec.TemplateVariables,
+            spec.IdempotencyKey,
+            spec.ReplyToMessageId,
+            null,
+            null,
+            null,
+            spec.Participants);
     }
 
     /// <summary>
