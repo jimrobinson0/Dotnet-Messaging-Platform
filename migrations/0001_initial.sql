@@ -57,6 +57,7 @@ CREATE TABLE core.messages (
 
   -- lifecycle
   status                  core.message_status NOT NULL,
+  requires_approval       BOOLEAN NOT NULL DEFAULT FALSE,
   content_source          core.message_content_source NOT NULL,
 
   -- template identity (resolved at enqueue)
@@ -89,19 +90,36 @@ CREATE TABLE core.messages (
 
   -- timestamps
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  CONSTRAINT chk_template_identity
-    CHECK (
-      (content_source = 'Template' AND template_key IS NOT NULL)
-      OR
-      (content_source = 'Direct' AND template_key IS NULL)
-    )
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-create unique index ux_messages_idempotency_key
-  on core.messages (idempotency_key)
-  where idempotency_key is not null;
+ALTER TABLE core.messages
+ADD CONSTRAINT chk_template_identity
+CHECK (
+  (content_source = 'Template' AND template_key IS NOT NULL)
+  OR
+  (content_source = 'Direct' AND template_key IS NULL)
+);
+
+ALTER TABLE core.messages
+ADD CONSTRAINT chk_reply_consistency
+CHECK (
+  (
+    reply_to_message_id IS NULL
+    AND in_reply_to IS NULL
+    AND references_header IS NULL
+  )
+  OR
+  (
+    reply_to_message_id IS NOT NULL
+    AND in_reply_to IS NOT NULL
+    AND references_header IS NOT NULL
+  )
+);
+
+CREATE UNIQUE INDEX ux_messages_idempotency_key
+  ON core.messages (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 -- Indexes for core workflows
 CREATE INDEX idx_messages_status
@@ -115,6 +133,21 @@ CREATE INDEX idx_messages_claimed_at
 
 CREATE INDEX idx_messages_created_at
   ON core.messages (created_at);
+
+CREATE INDEX idx_messages_reply_to_message_id
+  ON core.messages (reply_to_message_id);
+
+CREATE INDEX idx_messages_status_created_at
+  ON core.messages (status, created_at DESC);
+
+CREATE INDEX idx_messages_channel_status_created_at
+  ON core.messages (channel, status, created_at DESC);
+
+CREATE INDEX idx_messages_sent_at
+  ON core.messages (sent_at DESC);
+
+CREATE INDEX idx_messages_status_requires_created
+  ON core.messages (status, requires_approval, created_at DESC, id DESC);
 
 -- ============================================================
 -- Message Participants
@@ -186,7 +219,6 @@ CREATE INDEX idx_message_audit_events_occurred_at
 -- ============================================================
 -- * core schema is the authoritative platform boundary
 -- * Migrations are schema-explicit and search_path independent
--- * Tests and runtime may set search_path = core
 -- * messages.status represents lifecycle
 -- * message_reviews is append-only (1 decision per message in v1)
 -- * audit events are append-only by design
