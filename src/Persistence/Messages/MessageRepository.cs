@@ -72,14 +72,6 @@ public sealed class MessageRepository(
                                                   c.smtp_message_id as SmtpMessageId
                                                 from claimed c;
                                                 """;
-
-    private readonly AuditWriter _auditWriter = auditWriter;
-    private readonly DbConnectionFactory _connectionFactory = connectionFactory;
-    private readonly MessageReader _messageReader = messageReader;
-    private readonly MessageWriter _messageWriter = messageWriter;
-    private readonly ParticipantWriter _participantWriter = participantWriter;
-    private readonly ReviewWriter _reviewWriter = reviewWriter;
-
     public async Task<(Message Message, bool Inserted)> InsertAsync(
         Message message,
         bool requiresApprovalFromRequest,
@@ -93,12 +85,12 @@ public sealed class MessageRepository(
         var participants = ParticipantPrototypeMapper.FromCore(message.Participants);
 
         (Guid MessageId, bool Inserted) insertResult;
-        await using (var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken))
+        await using (var uow = await UnitOfWork.BeginAsync(connectionFactory, cancellationToken: cancellationToken))
         {
             var resolvedCreateIntent =
                 await ResolveReplyThreadingAsync(record, uow.Transaction, cancellationToken);
 
-            insertResult = await _messageWriter.InsertIdempotentAsync(
+            insertResult = await messageWriter.InsertIdempotentAsync(
                 resolvedCreateIntent,
                 uow.Transaction,
                 cancellationToken);
@@ -108,8 +100,8 @@ public sealed class MessageRepository(
                 var persistedAuditEvent = auditEventFactory(insertResult.MessageId);
                 ArgumentNullException.ThrowIfNull(persistedAuditEvent);
 
-                await _participantWriter.InsertAsync(persistedParticipants, uow.Transaction, cancellationToken);
-                await _auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
+                await participantWriter.InsertAsync(persistedParticipants, uow.Transaction, cancellationToken);
+                await auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
             }
 
             await uow.CommitAsync(cancellationToken);
@@ -133,7 +125,7 @@ public sealed class MessageRepository(
             };
 
         var replyTarget =
-            await _messageReader.GetReplyTargetAsync(record.ReplyToMessageId.Value, transaction, cancellationToken);
+            await messageReader.GetReplyTargetAsync(record.ReplyToMessageId.Value, transaction, cancellationToken);
         if (!IsValidReplyTarget(replyTarget))
             throw new MessageValidationException(
                 InvalidReplyTargetErrorCode,
@@ -171,13 +163,13 @@ public sealed class MessageRepository(
         ArgumentNullException.ThrowIfNull(applyDecision);
         ArgumentNullException.ThrowIfNull(auditEvent);
 
-        await using (var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken))
+        await using (var uow = await UnitOfWork.BeginAsync(connectionFactory, cancellationToken: cancellationToken))
         {
-            var message = await _messageReader.GetForUpdateAsync(messageId, uow.Transaction, cancellationToken);
+            var message = await messageReader.GetForUpdateAsync(messageId, uow.Transaction, cancellationToken);
             var reviewResult = applyDecision(message);
 
-            await _messageWriter.UpdateAsync(message, uow.Transaction, cancellationToken);
-            await _reviewWriter.InsertAsync(reviewResult.Review, uow.Transaction, cancellationToken);
+            await messageWriter.UpdateAsync(message, uow.Transaction, cancellationToken);
+            await reviewWriter.InsertAsync(reviewResult.Review, uow.Transaction, cancellationToken);
 
             var persistedAuditEvent = new MessageAuditEvent(
                 auditEvent.Id,
@@ -190,7 +182,7 @@ public sealed class MessageRepository(
                 reviewResult.Transition.OccurredAt,
                 auditEvent.MetadataJson);
 
-            await _auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
+            await auditWriter.InsertAsync(persistedAuditEvent, uow.Transaction, cancellationToken);
             await uow.CommitAsync(cancellationToken);
         }
 
@@ -204,7 +196,7 @@ public sealed class MessageRepository(
         if (string.IsNullOrWhiteSpace(workerId))
             throw new ArgumentException("Worker id cannot be null or whitespace.", nameof(workerId));
 
-        await using var uow = await UnitOfWork.BeginAsync(_connectionFactory, cancellationToken: cancellationToken);
+        await using var uow = await UnitOfWork.BeginAsync(connectionFactory, cancellationToken: cancellationToken);
 
         try
         {
@@ -237,8 +229,8 @@ public sealed class MessageRepository(
         Guid messageId,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken);
-        return await _messageReader.GetByIdAsync(messageId, connection, cancellationToken);
+        await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+        return await messageReader.GetByIdAsync(messageId, connection, cancellationToken);
     }
 
 }

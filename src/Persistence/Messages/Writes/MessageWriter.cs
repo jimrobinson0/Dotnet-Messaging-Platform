@@ -14,25 +14,25 @@ public sealed class MessageWriter
     // - Always returns a row.
     // - Id is newly inserted id or existing id for idempotency replay.
     // - Inserted is true when a new row was inserted.
-    internal const string InsertIdempotentSql = @"
-        insert into core.messages (
-          channel, status, requires_approval, content_source, template_key, template_version,
-          template_resolved_at, subject, text_body, html_body,
-          template_variables, idempotency_key, reply_to_message_id, in_reply_to, references_header
-        )
-        values (
-          @Channel, @Status::core.message_status, @RequiresApproval, @ContentSource::core.message_content_source,
-          @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
-          @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey,
-          @ReplyToMessageId, @InReplyTo, @ReferencesHeader
-        )
-        on conflict (idempotency_key) where (idempotency_key is not null)
-        do update
-          set updated_at = now()
-        returning
-          id as Id,
-          (xmax = 0) as inserted;
-        ";
+    internal const string InsertIdempotentSql = """
+                                                    insert into core.messages (
+                                                      channel, status, requires_approval, content_source, template_key, template_version,
+                                                      template_resolved_at, subject, text_body, html_body,
+                                                      template_variables, idempotency_key, reply_to_message_id, in_reply_to, references_header
+                                                    )
+                                                    values (
+                                                      @Channel, @Status::core.message_status, @RequiresApproval, @ContentSource::core.message_content_source,
+                                                      @TemplateKey, @TemplateVersion, @TemplateResolvedAt,
+                                                      @Subject, @TextBody, @HtmlBody, @TemplateVariables::jsonb, @IdempotencyKey,
+                                                      @ReplyToMessageId, @InReplyTo, @ReferencesHeader
+                                                    )
+                                                    on conflict (idempotency_key) where (idempotency_key is not null)
+                                                    do update
+                                                      set updated_at = now()
+                                                    returning
+                                                      id as Id,
+                                                      (xmax = 0) as inserted;
+                                                """;
 
     private const string UpdateSql = """
                                      update core.messages

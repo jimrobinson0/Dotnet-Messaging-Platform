@@ -49,20 +49,20 @@ public sealed class MessageReader
                                                 order by p.created_at
                                                 """;
 
-    private static readonly string MessageByIdSql = $"""
-                                                     select
-                                                     {MessageColumns}
-                                                     from core.messages m
-                                                     where m.id = @MessageId
-                                                     """;
+    private const string MessageByIdSql = $"""
+                                           select
+                                           {MessageColumns}
+                                           from core.messages m
+                                           where m.id = @MessageId
+                                           """;
 
-    private static readonly string MessageByIdForUpdateSql = $"""
-                                                              select
-                                                              {MessageColumns}
-                                                              from core.messages m
-                                                              where m.id = @MessageId
-                                                              for update
-                                                              """;
+    private const string MessageByIdForUpdateSql = $"""
+                                                    select
+                                                    {MessageColumns}
+                                                    from core.messages m
+                                                    where m.id = @MessageId
+                                                    for update
+                                                    """;
 
     private const string ReplyTargetSql = """
                                           select

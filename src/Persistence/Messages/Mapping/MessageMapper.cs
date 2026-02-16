@@ -22,7 +22,7 @@ internal static class MessageMapper
         var contentSource = ParseEnum<MessageContentSource>(row.ContentSource, "message_content_source");
 
         var participants = participantRows.Count == 0
-            ? Array.Empty<MessageParticipant>()
+            ? []
             : participantRows
                 .Select(MapParticipant)
                 .ToArray();
@@ -86,10 +86,8 @@ internal static class MessageMapper
         if (string.IsNullOrWhiteSpace(raw))
             throw new PersistenceException($"Column '{columnName}' contains an empty value.");
 
-        if (!Enum.TryParse<TEnum>(raw, true, out var value))
-            throw new PersistenceException($"Column '{columnName}' contains unknown value '{raw}'.");
-
-        return value;
+        return !Enum.TryParse<TEnum>(raw, true, out var value) ? 
+            throw new PersistenceException($"Column '{columnName}' contains unknown value '{raw}'.") : value;
     }
 }
 

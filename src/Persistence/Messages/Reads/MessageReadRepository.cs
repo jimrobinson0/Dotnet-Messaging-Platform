@@ -7,15 +7,8 @@ using Npgsql;
 
 namespace Messaging.Persistence.Messages.Reads;
 
-public sealed class MessageReadRepository : IMessageReadRepository
+public sealed class MessageReadRepository(DbConnectionFactory connectionFactory) : IMessageReadRepository
 {
-    private readonly DbConnectionFactory _connectionFactory;
-
-    public MessageReadRepository(DbConnectionFactory connectionFactory)
-    {
-        _connectionFactory = connectionFactory;
-    }
-
     public async Task<PagedReadResult<MessageReadItem>> ListAsync(
         MessageReadQuery query,
         CancellationToken cancellationToken = default)
@@ -53,7 +46,7 @@ public sealed class MessageReadRepository : IMessageReadRepository
                        offset @Offset;
                        """;
 
-        await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
         try
         {
@@ -129,11 +122,11 @@ public sealed class MessageReadRepository : IMessageReadRepository
             builder.AppendLine("  and m.sent_at < @SentTo");
         }
 
-        if (query.RequiresApproval.HasValue)
-        {
-            parameters.Add("RequiresApproval", query.RequiresApproval.Value);
-            builder.AppendLine("  and m.requires_approval = @RequiresApproval");
-        }
+        if (!query.RequiresApproval.HasValue) 
+            return builder.ToString();
+        
+        parameters.Add("RequiresApproval", query.RequiresApproval.Value);
+        builder.AppendLine("  and m.requires_approval = @RequiresApproval");
 
         return builder.ToString();
     }
