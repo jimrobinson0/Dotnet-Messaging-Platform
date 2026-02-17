@@ -72,17 +72,15 @@ Explicit non-actions (by design):
 
 ## Idempotent Message Create
 
-Message enqueue supports an optional `idempotency_key` at the persistence boundary.
+Message enqueue requires `idempotency_key` at the persistence boundary.
 
 Rules:
 
-* `messages.idempotency_key` is nullable.
-* A partial unique index enforces uniqueness only when a key is present.
-* Create uses `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`.
-* On conflict, a no-op update (`updated_at = now()`) is applied and the existing row id is returned in the same statement.
-* The statement returns an `Inserted` flag derived from `xmax = 0`.
+* `core.messages.idempotency_key` is `NOT NULL`.
+* A unique constraint enforces global uniqueness on `idempotency_key`.
+* Create uses a single atomic statement (CTE + `UNION ALL`) that returns either the newly inserted id or the existing id without mutating timestamps.
 * Participants and enqueue audit records are inserted **only** when the message row was newly created.
-* Replay is read-only with respect to message content, participants, and lifecycle state.
+* Replay is read-only with respect to message row data, participants, audit records, and timestamps.
 
 ---
 

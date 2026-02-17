@@ -16,7 +16,7 @@ Its job is to translate HTTP requests into **domain intent**, delegate all decis
 - Orchestrate workflows by calling:
     - **Messaging.Core** for domain behavior and transitions
     - **Messaging.Persistence** for storage and transactional consistency
-- Translate exceptions into consistent HTTP responses (ProblemDetails)
+- Translate exceptions into a consistent JSON error envelope
 
 ### ❌ This project **does not**
 
@@ -52,7 +52,8 @@ API should map errors to HTTP responses consistently:
 - **500 Internal Server Error**  
   Unexpected failures. Do not leak internal exception details in responses.
 
-Use `ProblemDetails` for structured error responses.
+Use a single envelope for all error responses:
+`{ "error": "SOME_CODE", "message": "Human readable", "details": { ...optional... } }`
 
 ---
 

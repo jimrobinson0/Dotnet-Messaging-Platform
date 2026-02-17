@@ -6,9 +6,9 @@ namespace Messaging.Api.Contracts.Messages;
 public sealed class MessageResponse
 {
     public Guid Id { get; init; }
-    public string Channel { get; init; } = string.Empty;
-    public string Status { get; init; } = string.Empty;
-    public string ContentSource { get; init; } = string.Empty;
+    public string Channel { get; init; } = null!;
+    public string Status { get; init; } = null!;
+    public string ContentSource { get; init; } = null!;
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
     public string? ClaimedBy { get; init; }
@@ -22,7 +22,7 @@ public sealed class MessageResponse
     public string? Subject { get; init; }
     public string? TextBody { get; init; }
     public string? HtmlBody { get; init; }
-    public string? IdempotencyKey { get; init; }
+    public required string IdempotencyKey { get; init; }
     public JsonElement? TemplateVariables { get; init; }
     [JsonPropertyName("reply_to_message_id")] public Guid? ReplyToMessageId { get; init; }
     [JsonPropertyName("in_reply_to")] public string? InReplyTo { get; init; }
@@ -37,8 +37,8 @@ public sealed class MessageParticipantResponse
 {
     public Guid Id { get; init; }
     public Guid MessageId { get; init; }
-    public string Role { get; init; } = string.Empty;
-    public string Address { get; init; } = string.Empty;
+    public string Role { get; init; } = null!;
+    public string Address { get; init; } = null!;
     public string? DisplayName { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
 }

@@ -14,6 +14,6 @@ public sealed record MessageCreateSpec(
     string? TextBody,
     string? HtmlBody,
     JsonElement? TemplateVariables,
-    string? IdempotencyKey,
+    string IdempotencyKey,
     IReadOnlyList<MessageParticipant> Participants,
     Guid? ReplyToMessageId);

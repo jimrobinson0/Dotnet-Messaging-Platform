@@ -381,53 +381,6 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task InsertIdempotentAsync_without_idempotency_key_creates_distinct_rows()
-    {
-        await ResetDbAsync();
-
-        var firstId = Guid.NewGuid();
-        var secondId = Guid.NewGuid();
-        var firstMessage = TestData.CreateApprovedMessage(firstId);
-        var secondMessage = TestData.CreateApprovedMessage(secondId);
-
-        var connectionFactory = new DbConnectionFactory(Fixture.ConnectionString);
-        var messageWriter = new MessageWriter();
-
-        (Guid MessageId, bool Inserted) firstInsert;
-        await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
-        {
-            firstInsert =
-                await messageWriter.InsertIdempotentAsync(InsertMessageRecordMapper.ToInsertRecord(firstMessage, false),
-                    uow.Transaction);
-            await uow.CommitAsync();
-        }
-
-        (Guid MessageId, bool Inserted) secondInsert;
-        await using (var uow = await UnitOfWork.BeginAsync(connectionFactory))
-        {
-            secondInsert =
-                await messageWriter.InsertIdempotentAsync(
-                    InsertMessageRecordMapper.ToInsertRecord(secondMessage, false),
-                    uow.Transaction);
-            await uow.CommitAsync();
-        }
-
-        Assert.True(firstInsert.Inserted);
-        Assert.True(secondInsert.Inserted);
-        Assert.NotEqual(firstInsert.MessageId, secondInsert.MessageId);
-
-        await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
-        await connection.OpenAsync();
-
-        var messageCount = await connection.QuerySingleAsync<int>(
-            "select count(1) from core.messages where id = any(@Ids)",
-            new { Ids = new[] { firstInsert.MessageId, secondInsert.MessageId } });
-
-        Assert.Equal(2, messageCount);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
     public async Task InsertIdempotentAsync_concurrent_same_key_returns_single_message_id_and_single_row()
     {
         await ResetDbAsync();
@@ -603,41 +556,6 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task InsertAsync_without_idempotency_key_creates_distinct_messages()
-    {
-        await ResetDbAsync();
-
-        var repository = CreateRepository();
-
-        var firstId = Guid.NewGuid();
-        var firstMessage = TestData.CreatePendingApprovalMessage(firstId);
-        var firstResult = await repository.InsertAsync(
-            firstMessage,
-            true,
-            "System",
-            "test");
-
-        var secondId = Guid.NewGuid();
-        var secondMessage = TestData.CreatePendingApprovalMessage(secondId);
-        var secondResult = await repository.InsertAsync(
-            secondMessage,
-            true,
-            "System",
-            "test");
-
-        Assert.True(firstResult.Inserted);
-        Assert.True(secondResult.Inserted);
-        Assert.NotEqual(firstResult.Message.Id, secondResult.Message.Id);
-
-        await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
-        await connection.OpenAsync();
-
-        var messageCount = await connection.QuerySingleAsync<int>("select count(1) from core.messages");
-        Assert.Equal(2, messageCount);
-    }
-
-    [Fact]
-    [Trait("Category", "Integration")]
     public async Task InsertAsync_concurrent_requests_with_same_key_store_one_message()
     {
         await ResetDbAsync();
@@ -718,15 +636,16 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, smtp_message_id, references_header
+                  id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id, references_header
                 )
                 values (
-                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @SmtpMessageId, null
+                  @Id, @IdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @SmtpMessageId, null
                 );
                 """,
                 new
                 {
                     Id = replyTargetId,
+                    IdempotencyKey = $"seed-{replyTargetId:N}",
                     SmtpMessageId = smtpMessageId
                 });
         }
@@ -778,18 +697,18 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                  id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @RootId, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
+                  @RootId, @RootIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
                 );
 
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, reply_to_message_id,
+                  id, idempotency_key, channel, status, content_source, subject, text_body, reply_to_message_id,
                   in_reply_to, smtp_message_id, references_header
                 )
                 values (
-                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @RootId,
+                  @Id, @ReplyIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', @RootId,
                   @RootSmtpMessageId, @SmtpMessageId, @ReferencesHeader
                 );
                 """,
@@ -797,6 +716,8 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
                 {
                     Id = replyTargetId,
                     RootId = rootMessageId,
+                    RootIdempotencyKey = $"seed-{rootMessageId:N}",
+                    ReplyIdempotencyKey = $"seed-{replyTargetId:N}",
                     RootSmtpMessageId = rootSmtpMessageId,
                     SmtpMessageId = smtpMessageId,
                     ReferencesHeader = originalReferences
@@ -867,13 +788,13 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                  id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @Id, 'email', 'Approved'::core.message_status, 'Direct', 'Original', 'Body', '<approved@example.test>'
+                  @Id, @IdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Original', 'Body', '<approved@example.test>'
                 );
                 """,
-                new { Id = replyTargetId });
+                new { Id = replyTargetId, IdempotencyKey = $"seed-{replyTargetId:N}" });
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
@@ -907,13 +828,13 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, smtp_message_id
+                  id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id
                 )
                 values (
-                  @Id, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', null
+                  @Id, @IdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Original', 'Body', null
                 );
                 """,
-                new { Id = replyTargetId });
+                new { Id = replyTargetId, IdempotencyKey = $"seed-{replyTargetId:N}" });
         }
 
         var message = TestData.CreateApprovedMessage(Guid.NewGuid(), replyToMessageId: replyTargetId);
@@ -947,32 +868,34 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         await connection.ExecuteAsync(
             """
             insert into core.messages (
-              id, channel, status, content_source, subject, text_body, smtp_message_id
+              id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id
             )
             values (
-              @RootMessageId, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
+              @RootMessageId, @RootIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Root', 'Body', @RootSmtpMessageId
             );
             """,
             new
             {
                 RootMessageId = rootMessageId,
+                RootIdempotencyKey = $"seed-{rootMessageId:N}",
                 RootSmtpMessageId = rootSmtpMessageId
             });
 
         var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
             """
             insert into core.messages (
-              id, channel, status, content_source, subject, text_body,
+              id, idempotency_key, channel, status, content_source, subject, text_body,
               reply_to_message_id, in_reply_to, references_header
             )
             values (
-              @ReplyMessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Reply', 'Body',
+              @ReplyMessageId, @ReplyIdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Reply', 'Body',
               @RootMessageId, @RootSmtpMessageId, null
             );
             """,
             new
             {
                 ReplyMessageId = Guid.NewGuid(),
+                ReplyIdempotencyKey = $"seed-{Guid.NewGuid():N}",
                 RootMessageId = rootMessageId,
                 RootSmtpMessageId = rootSmtpMessageId
             }));
@@ -993,15 +916,15 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
         await connection.ExecuteAsync(
             """
             insert into core.messages (
-              id, channel, status, content_source, subject, text_body,
+              id, idempotency_key, channel, status, content_source, subject, text_body,
               reply_to_message_id, in_reply_to, references_header
             )
             values (
-              @MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Root', 'Body',
+              @MessageId, @IdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Root', 'Body',
               null, null, null
             );
             """,
-            new { MessageId = messageId });
+            new { MessageId = messageId, IdempotencyKey = $"seed-{messageId:N}" });
 
         var persisted = await connection
             .QuerySingleAsync<(Guid Id, Guid? ReplyToMessageId, string? InReplyTo, string? ReferencesHeader)>(
@@ -1040,16 +963,18 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetAId, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetAId, @ReplyTargetAIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
-                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetBId, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetBId, @ReplyTargetBIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new
                 {
                     ReplyTargetAId = replyTargetAId,
                     ReplyTargetBId = replyTargetBId,
+                    ReplyTargetAIdempotencyKey = $"seed-{replyTargetAId:N}",
+                    ReplyTargetBIdempotencyKey = $"seed-{replyTargetBId:N}",
                     SmtpMessageIdA = smtpMessageIdA,
                     SmtpMessageIdB = smtpMessageIdB
                 });
@@ -1128,16 +1053,18 @@ public sealed class MessageInsertTests(PostgresFixture fixture) : PostgresTestBa
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetAId, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetAId, @ReplyTargetAIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Target A', 'Body', @SmtpMessageIdA);
 
-                insert into core.messages (id, channel, status, content_source, subject, text_body, smtp_message_id)
-                values (@ReplyTargetBId, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body, smtp_message_id)
+                values (@ReplyTargetBId, @ReplyTargetBIdempotencyKey, 'email', 'Sent'::core.message_status, 'Direct', 'Target B', 'Body', @SmtpMessageIdB);
                 """,
                 new
                 {
                     ReplyTargetAId = replyTargetAId,
                     ReplyTargetBId = replyTargetBId,
+                    ReplyTargetAIdempotencyKey = $"seed-{replyTargetAId:N}",
+                    ReplyTargetBIdempotencyKey = $"seed-{replyTargetBId:N}",
                     SmtpMessageIdA = smtpMessageIdA,
                     SmtpMessageIdB = smtpMessageIdB
                 });

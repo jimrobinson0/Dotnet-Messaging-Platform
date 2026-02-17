@@ -158,8 +158,11 @@ public sealed class MessageListTests
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/messages?status=Approved&page=0");
+        var (error, message) = await ReadErrorAsync(response);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("LIST_MESSAGES_INVALID_PAGE", error);
+        Assert.Contains("Page must be >= 1.", message, StringComparison.Ordinal);
         await readRepository.DidNotReceive().ListAsync(Arg.Any<MessageReadQuery>(), Arg.Any<CancellationToken>());
     }
 
@@ -175,9 +178,15 @@ public sealed class MessageListTests
 
         var zeroResponse = await client.GetAsync("/messages?status=Approved&pageSize=0");
         var tooLargeResponse = await client.GetAsync("/messages?status=Approved&pageSize=201");
+        var (zeroError, zeroMessage) = await ReadErrorAsync(zeroResponse);
+        var (tooLargeError, tooLargeMessage) = await ReadErrorAsync(tooLargeResponse);
 
         Assert.Equal(HttpStatusCode.BadRequest, zeroResponse.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, tooLargeResponse.StatusCode);
+        Assert.Equal("LIST_MESSAGES_INVALID_PAGE_SIZE", zeroError);
+        Assert.Equal("LIST_MESSAGES_INVALID_PAGE_SIZE", tooLargeError);
+        Assert.Contains("PageSize must be between 1 and 200.", zeroMessage, StringComparison.Ordinal);
+        Assert.Contains("PageSize must be between 1 and 200.", tooLargeMessage, StringComparison.Ordinal);
         await readRepository.DidNotReceive().ListAsync(Arg.Any<MessageReadQuery>(), Arg.Any<CancellationToken>());
     }
 
@@ -201,10 +210,16 @@ public sealed class MessageListTests
             "/messages?createdFrom=2026-01-02T00:00:00Z&createdTo=2026-01-01T00:00:00Z");
         var invalidSentResponse = await client.GetAsync(
             "/messages?sentFrom=2026-01-02T00:00:00Z&sentTo=2026-01-01T00:00:00Z");
+        var (createdError, createdMessage) = await ReadErrorAsync(invalidCreatedResponse);
+        var (sentError, sentMessage) = await ReadErrorAsync(invalidSentResponse);
 
         Assert.Equal(HttpStatusCode.OK, validResponse.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidCreatedResponse.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidSentResponse.StatusCode);
+        Assert.Equal("LIST_MESSAGES_INVALID_CREATED_RANGE", createdError);
+        Assert.Equal("LIST_MESSAGES_INVALID_SENT_RANGE", sentError);
+        Assert.Contains("CreatedFrom must be <= CreatedTo.", createdMessage, StringComparison.Ordinal);
+        Assert.Contains("SentFrom must be <= SentTo.", sentMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -218,8 +233,11 @@ public sealed class MessageListTests
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/messages?page=1&pageSize=50");
+        var (error, message) = await ReadErrorAsync(response);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("LIST_MESSAGES_FILTER_REQUIRED", error);
+        Assert.Contains("At least one of status", message, StringComparison.Ordinal);
         await readRepository.DidNotReceive().ListAsync(Arg.Any<MessageReadQuery>(), Arg.Any<CancellationToken>());
     }
 
@@ -308,6 +326,17 @@ public sealed class MessageListTests
             TotalCount = 0,
             Items = Array.Empty<MessageReadItem>()
         };
+    }
+
+    private static async Task<(string Error, string Message)> ReadErrorAsync(HttpResponseMessage response)
+    {
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement;
+        return (
+            root.GetProperty("error").GetString()!,
+            root.GetProperty("message").GetString()!);
     }
 
     private sealed class MessagingApiFactory : WebApplicationFactory<Program>

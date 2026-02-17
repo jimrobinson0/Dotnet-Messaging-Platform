@@ -20,6 +20,7 @@ internal static class MessageMapper
         ArgumentNullException.ThrowIfNull(participantRows);
 
         var contentSource = ParseEnum<MessageContentSource>(row.ContentSource, "message_content_source");
+        var idempotencyKey = RequireNonBlankInvariant(row.IdempotencyKey, "idempotency_key");
 
         var participants = participantRows.Count == 0
             ? []
@@ -45,8 +46,8 @@ internal static class MessageMapper
             row.Subject,
             row.TextBody,
             row.HtmlBody,
-            ParseJson(row.TemplateVariablesJson ?? row.TemplateVariables),
-            row.IdempotencyKey,
+            ParseJson(row.TemplateVariablesJson),
+            idempotencyKey,
             row.ReplyToMessageId,
             row.InReplyTo,
             row.ReferencesHeader,
@@ -89,14 +90,23 @@ internal static class MessageMapper
         return !Enum.TryParse<TEnum>(raw, true, out var value) ? 
             throw new PersistenceException($"Column '{columnName}' contains unknown value '{raw}'.") : value;
     }
+
+    private static string RequireNonBlankInvariant(string? value, string columnName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new PersistenceException(
+                $"Column '{columnName}' violated NOT NULL invariant.");
+
+        return value;
+    }
 }
 
 internal sealed class MessageRow
 {
     public Guid Id { get; set; }
-    public string Channel { get; set; } = string.Empty;
+    public string Channel { get; set; } = null!;
     public MessageStatus Status { get; set; }
-    public string ContentSource { get; set; } = string.Empty;
+    public string ContentSource { get; set; } = null!;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? ClaimedBy { get; set; }
@@ -111,8 +121,7 @@ internal sealed class MessageRow
     public string? TextBody { get; set; }
     public string? HtmlBody { get; set; }
     public string? TemplateVariablesJson { get; set; }
-    public string? TemplateVariables { get; set; }
-    public string? IdempotencyKey { get; set; }
+    public string IdempotencyKey { get; set; } = null!;
     public Guid? ReplyToMessageId { get; set; }
     public string? InReplyTo { get; set; }
     public string? ReferencesHeader { get; set; }
@@ -123,8 +132,8 @@ internal sealed class MessageParticipantRow
 {
     public Guid Id { get; set; }
     public Guid MessageId { get; set; }
-    public string Role { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
+    public string Role { get; set; } = null!;
+    public string Address { get; set; } = null!;
     public string? DisplayName { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

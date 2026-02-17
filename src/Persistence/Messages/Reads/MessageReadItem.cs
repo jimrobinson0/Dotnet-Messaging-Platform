@@ -5,7 +5,7 @@ namespace Messaging.Persistence.Messages.Reads;
 public sealed class MessageReadItem
 {
     public Guid Id { get; init; }
-    public string Channel { get; init; } = string.Empty;
+    public string Channel { get; init; } = null!;
     public MessageStatus Status { get; init; }
     public bool RequiresApproval { get; init; }
     public string? Subject { get; init; }

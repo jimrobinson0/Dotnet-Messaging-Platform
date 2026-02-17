@@ -1,6 +1,6 @@
 using Messaging.Api.Contracts;
 using Messaging.Api.Contracts.Messages;
-using Messaging.Core.Exceptions;
+using Messaging.Api.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using ApplicationMessages = Messaging.Application.Messages;
 
@@ -35,9 +35,9 @@ public sealed class MessagesController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (Request.Headers.TryGetValue(IdempotencyKeyHeaderName, out var headerValues) && headerValues.Count > 1)
-            throw new ArgumentException(
-                $"Header '{IdempotencyKeyHeaderName}' must be supplied at most once.",
-                nameof(idempotencyKeyHeader));
+            throw new ApiContractException(
+                "MULTIPLE_IDEMPOTENCY_HEADERS",
+                $"Header '{IdempotencyKeyHeaderName}' must be supplied at most once.");
 
         var idempotencyKey = ResolveIdempotencyKey(idempotencyKeyHeader, request.IdempotencyKey);
         ApplicationMessages.CreateMessageResult createResult =
@@ -102,26 +102,30 @@ public sealed class MessagesController : ControllerBase
         return Ok(result.ToResponse());
     }
 
-    private static string? ResolveIdempotencyKey(string? headerKey, string? bodyKey)
+    private static string ResolveIdempotencyKey(string? headerKey, string? bodyKey)
     {
         var normalizedHeader = NormalizeIdempotencyKey(headerKey);
         var normalizedBody = NormalizeIdempotencyKey(bodyKey);
 
+        if (normalizedHeader is null && normalizedBody is null)
+            throw new ApiContractException(
+                "IDEMPOTENCY_KEY_REQUIRED",
+                "An idempotency key must be supplied via the 'Idempotency-Key' header or request body.");
+
+        // Header/body mismatch (case-sensitive Ordinal)
         if (normalizedHeader is not null &&
             normalizedBody is not null &&
             !string.Equals(normalizedHeader, normalizedBody, StringComparison.Ordinal))
-            throw new MessageValidationException(
+            throw new ApiContractException(
                 "IDEMPOTENCY_KEY_MISMATCH",
-                "Idempotency key mismatch: header 'Idempotency-Key' and body 'idempotencyKey' must match when both are provided.");
+                "Idempotency key mismatch: header and body must match exactly when both provided.");
 
-        return normalizedHeader ?? normalizedBody;
+        return normalizedHeader ?? normalizedBody!;
     }
 
     private static string? NormalizeIdempotencyKey(string? value)
     {
-        if (value is null) return null;
-
-        var normalized = value.Trim();
-        return normalized.Length == 0 ? null : normalized;
+        value = value?.Trim();
+        return string.IsNullOrEmpty(value) ? null : value;
     }
 }

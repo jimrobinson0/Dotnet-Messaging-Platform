@@ -19,6 +19,7 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
         var rows = Enumerable.Range(0, 5)
             .Select(i => new MessageSeed(
                 Guid.NewGuid(),
+                $"seed-{Guid.NewGuid():N}",
                 "email",
                 "Approved",
                 false,
@@ -64,10 +65,10 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
 
         var now = new DateTimeOffset(2026, 1, 2, 0, 0, 0, TimeSpan.Zero);
         await SeedMessagesAsync(
-            new MessageSeed(Guid.NewGuid(), "email", "Approved", false, "approved", now, null, null),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "failed-1", now.AddMinutes(1), now.AddMinutes(2),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Approved", false, "approved", now, null, null),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "failed-1", now.AddMinutes(1), now.AddMinutes(2),
                 "boom"),
-            new MessageSeed(Guid.NewGuid(), "sms", "Failed", false, "failed-2", now.AddMinutes(3), now.AddMinutes(4),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "sms", "Failed", false, "failed-2", now.AddMinutes(3), now.AddMinutes(4),
                 "boom2"));
 
         var repository = CreateRepository();
@@ -94,10 +95,10 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
 
         var now = new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero);
         await SeedMessagesAsync(
-            new MessageSeed(Guid.NewGuid(), "email", "Approved", false, "approved", now, null, null),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "failed", now.AddMinutes(1), now.AddMinutes(1),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Approved", false, "approved", now, null, null),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "failed", now.AddMinutes(1), now.AddMinutes(1),
                 "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Sent", false, "sent", now.AddMinutes(2), now.AddMinutes(2), null));
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Sent", false, "sent", now.AddMinutes(2), now.AddMinutes(2), null));
 
         var repository = CreateRepository();
         var result = await repository.ListAsync(new MessageReadQuery(
@@ -125,9 +126,9 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
         var inside = Guid.NewGuid();
 
         await SeedMessagesAsync(
-            new MessageSeed(Guid.NewGuid(), "email", "Approved", false, "before", baseTime, null, null),
-            new MessageSeed(inside, "email", "Approved", false, "inside", baseTime.AddHours(1), null, null),
-            new MessageSeed(Guid.NewGuid(), "email", "Approved", false, "at-upper", baseTime.AddHours(2), null, null));
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Approved", false, "before", baseTime, null, null),
+            new MessageSeed(inside, $"seed-{inside:N}", "email", "Approved", false, "inside", baseTime.AddHours(1), null, null),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Approved", false, "at-upper", baseTime.AddHours(2), null, null));
 
         var repository = CreateRepository();
         var result = await repository.ListAsync(new MessageReadQuery(
@@ -157,9 +158,9 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
         var newest = Guid.NewGuid();
 
         await SeedMessagesAsync(
-            new MessageSeed(lowerId, "email", "Approved", false, "lower", tiedCreatedAt, null, null),
-            new MessageSeed(higherId, "email", "Approved", false, "higher", tiedCreatedAt, null, null),
-            new MessageSeed(newest, "email", "Approved", false, "newest", tiedCreatedAt.AddMinutes(1), null, null));
+            new MessageSeed(lowerId, $"seed-{lowerId:N}", "email", "Approved", false, "lower", tiedCreatedAt, null, null),
+            new MessageSeed(higherId, $"seed-{higherId:N}", "email", "Approved", false, "higher", tiedCreatedAt, null, null),
+            new MessageSeed(newest, $"seed-{newest:N}", "email", "Approved", false, "newest", tiedCreatedAt.AddMinutes(1), null, null));
 
         var repository = CreateRepository();
         var result = await repository.ListAsync(new MessageReadQuery(
@@ -187,10 +188,10 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
 
         var now = new DateTimeOffset(2026, 1, 6, 0, 0, 0, TimeSpan.Zero);
         await SeedMessagesAsync(
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "failed-1", now, now, "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "failed-2", now.AddMinutes(1), now, "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "failed-3", now.AddMinutes(2), now, "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Sent", false, "sent", now.AddMinutes(3), now, null));
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "failed-1", now, now, "boom"),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "failed-2", now.AddMinutes(1), now, "boom"),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "failed-3", now.AddMinutes(2), now, "boom"),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Sent", false, "sent", now.AddMinutes(3), now, null));
 
         var repository = CreateRepository();
         var result = await repository.ListAsync(new MessageReadQuery(
@@ -240,12 +241,12 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
         var matchId = Guid.NewGuid();
 
         await SeedMessagesAsync(
-            new MessageSeed(matchId, "email", "Failed", true, "match", baseTime, baseTime.AddHours(1), "boom"),
-            new MessageSeed(Guid.NewGuid(), "sms", "Failed", true, "wrong-channel", baseTime, baseTime.AddHours(1),
+            new MessageSeed(matchId, $"seed-{matchId:N}", "email", "Failed", true, "match", baseTime, baseTime.AddHours(1), "boom"),
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "sms", "Failed", true, "wrong-channel", baseTime, baseTime.AddHours(1),
                 "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", false, "wrong-approval", baseTime,
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", false, "wrong-approval", baseTime,
                 baseTime.AddHours(1), "boom"),
-            new MessageSeed(Guid.NewGuid(), "email", "Failed", true, "outside-sent-window", baseTime,
+            new MessageSeed(Guid.NewGuid(), $"seed-{Guid.NewGuid():N}", "email", "Failed", true, "outside-sent-window", baseTime,
                 baseTime.AddHours(4), "boom"));
 
         var repository = CreateRepository();
@@ -277,6 +278,7 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
         const string sql = """
                            insert into core.messages (
                              id,
+                             idempotency_key,
                              channel,
                              status,
                              requires_approval,
@@ -290,6 +292,7 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
                            )
                            values (
                              @Id,
+                             @IdempotencyKey,
                              @Channel,
                              @Status::core.message_status,
                              @RequiresApproval,
@@ -308,6 +311,7 @@ public sealed class MessageReadRepositoryTests(PostgresFixture fixture) : Postgr
 
     private sealed record MessageSeed(
         Guid Id,
+        string IdempotencyKey,
         string Channel,
         string Status,
         bool RequiresApproval,

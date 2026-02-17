@@ -9,8 +9,6 @@ namespace Messaging.Core;
 /// </summary>
 public sealed class Message
 {
-    private const int MaxIdempotencyKeyLength = 128;
-
     private readonly List<MessageParticipant> _participants;
 
     /// <summary>
@@ -36,7 +34,7 @@ public sealed class Message
         string? textBody,
         string? htmlBody,
         JsonElement? templateVariables,
-        string? idempotencyKey,
+        string idempotencyKey,
         Guid? replyToMessageId,
         string? inReplyTo,
         string? referencesHeader,
@@ -53,7 +51,7 @@ public sealed class Message
                 "Attempt count cannot be negative.");
 
         Id = id;
-        Channel = channel;
+        Channel = ValidateChannel(channel);
         Status = status;
         ContentSource = contentSource;
         CreatedAt = createdAt;
@@ -104,7 +102,10 @@ public sealed class Message
     public string? TextBody { get; }
     public string? HtmlBody { get; }
     public JsonElement? TemplateVariables { get; }
-    public string? IdempotencyKey { get; }
+    /// Globally unique external deduplication key.
+    /// Immutable after creation.
+    /// Enforced via unique constraint in persistence.
+    public string IdempotencyKey { get; }
     public Guid? ReplyToMessageId { get; }
     public string? InReplyTo { get; }
     public string? ReferencesHeader { get; }
@@ -310,17 +311,33 @@ public sealed class Message
                 "Direct content requires template_key to be null.");
     }
 
-    private static string? NormalizeIdempotencyKey(string? idempotencyKey)
+    private static string ValidateChannel(string channel)
     {
-        if (idempotencyKey is null) return null;
+        if (string.IsNullOrWhiteSpace(channel))
+            throw new MessageValidationException(
+                "CHANNEL_REQUIRED",
+                "Channel is required.");
 
+        if (channel.Length > MessageConstraints.MaxChannelLength)
+            throw new MessageValidationException(
+                "CHANNEL_TOO_LONG",
+                $"Channel must be <= {MessageConstraints.MaxChannelLength} characters.");
+
+        return channel;
+    }
+
+    private static string NormalizeIdempotencyKey(string idempotencyKey)
+    {
         var normalized = idempotencyKey.Trim();
-        if (normalized.Length == 0) return null;
+        if (normalized.Length == 0)
+            throw new MessageValidationException(
+                "IDEMPOTENCY_KEY_REQUIRED",
+                "Idempotency key is required.");
 
-        if (normalized.Length > MaxIdempotencyKeyLength)
-            throw new ArgumentException(
-                $"Idempotency key cannot exceed {MaxIdempotencyKeyLength} characters.",
-                nameof(idempotencyKey));
+        if (normalized.Length > MessageConstraints.MaxIdempotencyKeyLength)
+            throw new MessageValidationException(
+                "IDEMPOTENCY_KEY_TOO_LONG",
+                $"Idempotency key must be <= {MessageConstraints.MaxIdempotencyKeyLength} characters.");
 
         return normalized;
     }

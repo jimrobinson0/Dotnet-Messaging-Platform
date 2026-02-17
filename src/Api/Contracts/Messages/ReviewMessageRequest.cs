@@ -4,7 +4,7 @@ namespace Messaging.Api.Contracts.Messages;
 
 public sealed class ReviewMessageRequest
 {
-    [Required][MaxLength(255)] public string DecidedBy { get; init; } = string.Empty;
+    [Required][MaxLength(255)] public string DecidedBy { get; init; } = null!;
 
     [Required][MaxLength(50)] public string ActorType { get; init; } = "Human";
 

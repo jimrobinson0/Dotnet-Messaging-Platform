@@ -1,13 +1,16 @@
 using System.ComponentModel.DataAnnotations;
+using Messaging.Core;
 using System.Text.Json;
 
 namespace Messaging.Api.Contracts.Messages;
 
 public sealed class CreateMessageRequest
 {
-    [Required][MaxLength(50)] public string Channel { get; init; } = string.Empty;
+    [Required]
+    [MaxLength(MessageConstraints.MaxChannelLength)]
+    public string Channel { get; init; } = null!;
 
-    [Required][MaxLength(50)] public string ContentSource { get; init; } = string.Empty;
+    [Required][MaxLength(50)] public string ContentSource { get; init; } = null!;
 
     public bool RequiresApproval { get; init; }
 

@@ -35,18 +35,21 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, created_at, updated_at
+                  id, idempotency_key, channel, status, content_source, subject, text_body, created_at, updated_at
                 )
                 values
-                  (@PendingId, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body', @PendingCreatedAt, @PendingCreatedAt),
-                  (@OldestApprovedId, 'email', 'Approved'::core.message_status, 'Direct', 'Oldest', 'Body', @OldestApprovedCreatedAt, @OldestApprovedCreatedAt),
-                  (@NewestApprovedId, 'email', 'Approved'::core.message_status, 'Direct', 'Newest', 'Body', @NewestApprovedCreatedAt, @NewestApprovedCreatedAt);
+                  (@PendingId, @PendingIdempotencyKey, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body', @PendingCreatedAt, @PendingCreatedAt),
+                  (@OldestApprovedId, @OldestApprovedIdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Oldest', 'Body', @OldestApprovedCreatedAt, @OldestApprovedCreatedAt),
+                  (@NewestApprovedId, @NewestApprovedIdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Newest', 'Body', @NewestApprovedCreatedAt, @NewestApprovedCreatedAt);
                 """,
                 new
                 {
                     PendingId = pendingId,
                     OldestApprovedId = oldestApprovedId,
                     NewestApprovedId = newestApprovedId,
+                    PendingIdempotencyKey = $"seed-{pendingId:N}",
+                    OldestApprovedIdempotencyKey = $"seed-{oldestApprovedId:N}",
+                    NewestApprovedIdempotencyKey = $"seed-{newestApprovedId:N}",
                     PendingCreatedAt = pendingCreatedAt,
                     OldestApprovedCreatedAt = oldestApprovedCreatedAt,
                     NewestApprovedCreatedAt = newestApprovedCreatedAt
@@ -83,23 +86,29 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
         await ResetDbAsync();
 
         var repository = CreateRepository();
+        var pendingId = Guid.NewGuid();
+        var failedId = Guid.NewGuid();
+        var rejectedId = Guid.NewGuid();
 
         await using (var connection = new NpgsqlConnection(Fixture.ConnectionString))
         {
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into core.messages (id, channel, status, content_source, subject, text_body)
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body)
                 values
-                  (@PendingId, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body'),
-                  (@FailedId, 'email', 'Failed'::core.message_status, 'Direct', 'Failed', 'Body'),
-                  (@RejectedId, 'email', 'Rejected'::core.message_status, 'Direct', 'Rejected', 'Body');
+                  (@PendingId, @PendingIdempotencyKey, 'email', 'PendingApproval', 'Direct', 'Pending', 'Body'),
+                  (@FailedId, @FailedIdempotencyKey, 'email', 'Failed'::core.message_status, 'Direct', 'Failed', 'Body'),
+                  (@RejectedId, @RejectedIdempotencyKey, 'email', 'Rejected'::core.message_status, 'Direct', 'Rejected', 'Body');
                 """,
                 new
                 {
-                    PendingId = Guid.NewGuid(),
-                    FailedId = Guid.NewGuid(),
-                    RejectedId = Guid.NewGuid()
+                    PendingId = pendingId,
+                    FailedId = failedId,
+                    RejectedId = rejectedId,
+                    PendingIdempotencyKey = $"seed-{pendingId:N}",
+                    FailedIdempotencyKey = $"seed-{failedId:N}",
+                    RejectedIdempotencyKey = $"seed-{rejectedId:N}"
                 });
         }
 
@@ -132,16 +141,18 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, created_at, updated_at
+                  id, idempotency_key, channel, status, content_source, subject, text_body, created_at, updated_at
                 )
                 values
-                  (@FirstId, 'email', 'Approved'::core.message_status, 'Direct', 'First', 'Body', @CreatedAt, @CreatedAt),
-                  (@SecondId, 'email', 'Approved'::core.message_status, 'Direct', 'Second', 'Body', @CreatedAt, @CreatedAt);
+                  (@FirstId, @FirstIdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'First', 'Body', @CreatedAt, @CreatedAt),
+                  (@SecondId, @SecondIdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Second', 'Body', @CreatedAt, @CreatedAt);
                 """,
                 new
                 {
                     FirstId = firstId,
                     SecondId = secondId,
+                    FirstIdempotencyKey = $"seed-{firstId:N}",
+                    SecondIdempotencyKey = $"seed-{secondId:N}",
                     CreatedAt = createdAt
                 });
         }
@@ -169,10 +180,10 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into core.messages (id, channel, status, content_source, subject, text_body)
-                values (@MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body)
+                values (@MessageId, @IdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
                 """,
-                new { MessageId = approvedMessageId });
+                new { MessageId = approvedMessageId, IdempotencyKey = $"seed-{approvedMessageId:N}" });
         }
 
         var firstClaim = await repository.ClaimNextApprovedAsync("worker-1");
@@ -196,10 +207,10 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
             await connection.OpenAsync();
             await connection.ExecuteAsync(
                 """
-                insert into core.messages (id, channel, status, content_source, subject, text_body)
-                values (@MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
+                insert into core.messages (id, idempotency_key, channel, status, content_source, subject, text_body)
+                values (@MessageId, @IdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body');
                 """,
-                new { MessageId = messageId });
+                new { MessageId = messageId, IdempotencyKey = $"seed-{messageId:N}" });
         }
 
         var startGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -256,13 +267,13 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
             await connection.ExecuteAsync(
                 """
                 insert into core.messages (
-                  id, channel, status, content_source, subject, text_body, attempt_count
+                  id, idempotency_key, channel, status, content_source, subject, text_body, attempt_count
                 )
                 values (
-                  @MessageId, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body', 2
+                  @MessageId, @IdempotencyKey, 'email', 'Approved'::core.message_status, 'Direct', 'Approved', 'Body', 2
                 );
                 """,
-                new { MessageId = messageId });
+                new { MessageId = messageId, IdempotencyKey = $"seed-{messageId:N}" });
         }
 
         var claim = await repository.ClaimNextApprovedAsync("worker-1");
@@ -330,7 +341,8 @@ public sealed class MessageClaimTests(PostgresFixture fixture) : PostgresTestBas
         Assert.Equal(MessageStatus.Sending, afterReplay.Status);
         Assert.Equal("worker-1", afterReplay.ClaimedBy);
         Assert.Equal(claimed.ClaimedAt, afterReplay.ClaimedAt);
-        Assert.True(afterReplay.UpdatedAt > claimed.UpdatedAt);
+        // Replay must NOT mutate updated_at — DO NOTHING preserves all timestamps.
+        Assert.Equal(claimed.UpdatedAt, afterReplay.UpdatedAt);
     }
 
     private MessageRepository CreateRepository()

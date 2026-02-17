@@ -1,3 +1,5 @@
+using Messaging.Core.Exceptions;
+
 namespace Messaging.Core;
 
 public sealed class MessageParticipant
@@ -10,7 +12,10 @@ public sealed class MessageParticipant
         string? displayName,
         DateTimeOffset createdAt)
     {
-        ArgumentNullException.ThrowIfNull(address);
+        if (string.IsNullOrWhiteSpace(address))
+            throw new MessageValidationException(
+                "PARTICIPANT_ADDRESS_REQUIRED",
+                "Participant address is required.");
 
         Id = id;
         MessageId = messageId;

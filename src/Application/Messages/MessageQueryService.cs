@@ -1,4 +1,5 @@
 using Messaging.Persistence.Messages.Reads;
+using Messaging.Core.Exceptions;
 
 namespace Messaging.Application.Messages;
 
@@ -46,23 +47,24 @@ public sealed class MessageQueryService(IMessageReadRepository readRepository) :
     private static void Validate(ListMessagesQuery query)
     {
         if (query.Page < 1)
-            throw new BadRequestException("Page must be >= 1.");
+            throw new MessageValidationException("LIST_MESSAGES_INVALID_PAGE", "Page must be >= 1.");
 
         if (query.PageSize < 1 || query.PageSize > 200)
-            throw new BadRequestException("PageSize must be between 1 and 200.");
+            throw new MessageValidationException("LIST_MESSAGES_INVALID_PAGE_SIZE", "PageSize must be between 1 and 200.");
 
         if (query.CreatedFrom.HasValue && query.CreatedTo.HasValue && query.CreatedFrom > query.CreatedTo)
-            throw new BadRequestException("CreatedFrom must be <= CreatedTo.");
+            throw new MessageValidationException("LIST_MESSAGES_INVALID_CREATED_RANGE", "CreatedFrom must be <= CreatedTo.");
 
         if (query.SentFrom.HasValue && query.SentTo.HasValue && query.SentFrom > query.SentTo)
-            throw new BadRequestException("SentFrom must be <= SentTo.");
+            throw new MessageValidationException("LIST_MESSAGES_INVALID_SENT_RANGE", "SentFrom must be <= SentTo.");
 
         var hasStatus = query.Status is { Count: > 0 };
         var hasCreatedFilter = query.CreatedFrom.HasValue || query.CreatedTo.HasValue;
         var hasSentFilter = query.SentFrom.HasValue || query.SentTo.HasValue;
 
         if (!hasStatus && !hasCreatedFilter && !hasSentFilter)
-            throw new BadRequestException(
+            throw new MessageValidationException(
+                "LIST_MESSAGES_FILTER_REQUIRED",
                 "At least one of status, createdFrom/createdTo, or sentFrom/sentTo is required.");
     }
 }

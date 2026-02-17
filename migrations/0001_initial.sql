@@ -50,10 +50,10 @@ CREATE TYPE core.message_participant_role AS ENUM (
 CREATE TABLE core.messages (
   -- identity
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  idempotency_key         TEXT NULL,
+  idempotency_key         TEXT NOT NULL,
 
   -- routing
-  channel                 VARCHAR NOT NULL,
+  channel                 VARCHAR(50) NOT NULL,
 
   -- lifecycle
   status                  core.message_status NOT NULL,
@@ -94,6 +94,21 @@ CREATE TABLE core.messages (
 );
 
 ALTER TABLE core.messages
+-- Idempotency keys are case-sensitive.
+-- Database collation must preserve case sensitivity for TEXT comparisons.
+-- Global uniqueness invariant. Replay resolution depends on this constraint.
+ADD CONSTRAINT uq_messages_idempotency_key
+UNIQUE (idempotency_key);
+
+ALTER TABLE core.messages
+ADD CONSTRAINT chk_messages_idempotency_key_not_blank
+CHECK (btrim(idempotency_key) <> '');
+
+ALTER TABLE core.messages
+ADD CONSTRAINT chk_messages_idempotency_key_length
+CHECK (char_length(btrim(idempotency_key)) <= 128);
+
+ALTER TABLE core.messages
 ADD CONSTRAINT chk_template_identity
 CHECK (
   (content_source = 'Template' AND template_key IS NOT NULL)
@@ -116,10 +131,6 @@ CHECK (
     AND references_header IS NOT NULL
   )
 );
-
-CREATE UNIQUE INDEX ux_messages_idempotency_key
-  ON core.messages (idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
 
 -- Indexes for core workflows
 CREATE INDEX idx_messages_status

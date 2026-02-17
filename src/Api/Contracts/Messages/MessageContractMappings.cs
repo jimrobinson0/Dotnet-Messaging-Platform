@@ -5,7 +5,7 @@ namespace Messaging.Api.Contracts.Messages;
 
 public static class MessageContractMappings
 {
-    public static CreateMessageCommand ToCommand(this CreateMessageRequest request, string? idempotencyKey)
+    public static CreateMessageCommand ToCommand(this CreateMessageRequest request, string idempotencyKey)
     {
         ArgumentNullException.ThrowIfNull(request);
 

@@ -26,6 +26,9 @@
     <Folder Name="/test/Core.Tests/">
         <Project Path="test/Core.Tests/Messaging.Core.Tests.csproj" />
     </Folder>
+    <Folder Name="/test/Application.Tests/">
+        <Project Path="test/Application.Tests/Messaging.Application.Tests.csproj" />
+    </Folder>
     <Folder Name="/test/Persistence.Tests/">
         <Project Path="test/Persistence.Tests/Messaging.Persistence.Tests.csproj" />
     </Folder>

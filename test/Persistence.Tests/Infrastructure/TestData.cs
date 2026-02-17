@@ -8,7 +8,17 @@ internal static class TestData
 {
     public static Message CreatePendingApprovalMessage(
         Guid messageId,
-        string? idempotencyKey = null,
+        Guid? replyToMessageId = null)
+    {
+        return CreatePendingApprovalMessage(
+            messageId,
+            $"pending-{Guid.NewGuid():N}",
+            replyToMessageId);
+    }
+
+    public static Message CreatePendingApprovalMessage(
+        Guid messageId,
+        string idempotencyKey,
         Guid? replyToMessageId = null)
     {
         return Message.Create(new MessageCreateSpec(
@@ -30,7 +40,17 @@ internal static class TestData
 
     public static Message CreateApprovedMessage(
         Guid messageId,
-        string? idempotencyKey = null,
+        Guid? replyToMessageId = null)
+    {
+        return CreateApprovedMessage(
+            messageId,
+            $"approved-{Guid.NewGuid():N}",
+            replyToMessageId);
+    }
+
+    public static Message CreateApprovedMessage(
+        Guid messageId,
+        string idempotencyKey,
         Guid? replyToMessageId = null)
     {
         return Message.Create(new MessageCreateSpec(
@@ -66,7 +86,7 @@ internal static class TestData
             "Hello {{name}}",
             "<p>Hello {{name}}</p>",
             variablesJson,
-            null,
+            $"template-{Guid.NewGuid():N}",
             CreateParticipants(messageId),
             null));
     }
@@ -85,7 +105,7 @@ internal static class TestData
             "Short message",
             null,
             null,
-            null,
+            $"no-participants-{Guid.NewGuid():N}",
             Array.Empty<MessageParticipant>(),
             null));
     }

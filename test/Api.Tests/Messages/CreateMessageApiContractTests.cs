@@ -17,6 +17,46 @@ public sealed class CreateMessageApiContractTests
 {
     [Fact]
     [Trait("Category", "Contract")]
+    public async Task Create_returns_model_validation_errors_in_standard_envelope()
+    {
+        var service = Substitute.For<IMessageApplicationService>();
+
+        await using var factory = new MessagingApiFactory(service);
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
+        {
+            Content = JsonContent.Create(new
+            {
+                contentSource = "Direct",
+                requiresApproval = false,
+                subject = "Subject",
+                textBody = "Hello",
+                participants = Array.Empty<object>(),
+                actorType = "System",
+                actorId = "api"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", "model-validation-key");
+
+        var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement;
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("INVALID_REQUEST", root.GetProperty("error").GetString());
+        Assert.Equal("Validation failed.", root.GetProperty("message").GetString());
+        var details = root.GetProperty("details");
+        Assert.Equal(JsonValueKind.Object, details.ValueKind);
+        var detailKeys = details.EnumerateObject().Select(property => property.Name).ToArray();
+        Assert.Contains("channel", detailKeys);
+        await service.DidNotReceiveWithAnyArgs().CreateAsync(default!, default);
+    }
+
+    [Fact]
+    [Trait("Category", "Contract")]
     public async Task Create_uses_header_idempotency_key_and_returns_201_for_new_message()
     {
         var service = Substitute.For<IMessageApplicationService>();
@@ -89,6 +129,85 @@ public sealed class CreateMessageApiContractTests
 
     [Fact]
     [Trait("Category", "Contract")]
+    public async Task Create_returns_400_when_idempotency_key_is_missing()
+    {
+        var service = Substitute.For<IMessageApplicationService>();
+
+        await using var factory = new MessagingApiFactory(service);
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
+        {
+            Content = JsonContent.Create(new
+            {
+                channel = "email",
+                contentSource = "Direct",
+                requiresApproval = false,
+                subject = "Subject",
+                textBody = "Hello",
+                participants = Array.Empty<object>(),
+                actorType = "System",
+                actorId = "api"
+            })
+        };
+
+        var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement;
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("IDEMPOTENCY_KEY_REQUIRED", root.GetProperty("error").GetString());
+        Assert.Contains("idempotency key must be supplied", root.GetProperty("message").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        await service.DidNotReceiveWithAnyArgs().CreateAsync(default!, default);
+    }
+
+    [Fact]
+    [Trait("Category", "Contract")]
+    public async Task Create_returns_400_when_idempotency_key_exceeds_max_length()
+    {
+        var service = Substitute.For<IMessageApplicationService>();
+        service.CreateAsync(Arg.Any<CreateMessageCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<CreateMessageResult>(
+                new MessageValidationException(
+                    "IDEMPOTENCY_KEY_TOO_LONG",
+                    $"Idempotency key must be <= {MessageConstraints.MaxIdempotencyKeyLength} characters.")));
+
+        await using var factory = new MessagingApiFactory(service);
+        using var client = factory.CreateClient();
+
+        var tooLong = new string('x', MessageConstraints.MaxIdempotencyKeyLength + 1);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/messages")
+        {
+            Content = JsonContent.Create(new
+            {
+                channel = "email",
+                contentSource = "Direct",
+                requiresApproval = false,
+                subject = "Subject",
+                textBody = "Hello",
+                participants = Array.Empty<object>(),
+                actorType = "System",
+                actorId = "api"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", tooLong);
+
+        var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(payload);
+        var root = document.RootElement;
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("IDEMPOTENCY_KEY_TOO_LONG", root.GetProperty("error").GetString());
+        Assert.Contains("must be <=", root.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Contract")]
     public async Task Create_returns_400_when_header_and_body_idempotency_keys_differ()
     {
         var service = Substitute.For<IMessageApplicationService>();
@@ -119,13 +238,10 @@ public sealed class CreateMessageApiContractTests
         var root = document.RootElement;
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("Invalid request", root.GetProperty("title").GetString());
-        Assert.Equal("IDEMPOTENCY_KEY_MISMATCH", root.GetProperty("code").GetString());
-        Assert.Contains("Idempotency key mismatch", root.GetProperty("detail").GetString(), StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            service.ReceivedCalls(),
-            call => string.Equals(call.GetMethodInfo().Name, nameof(IMessageApplicationService.CreateAsync),
-                StringComparison.Ordinal));
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("IDEMPOTENCY_KEY_MISMATCH", root.GetProperty("error").GetString());
+        Assert.Contains("Idempotency key mismatch", root.GetProperty("message").GetString(), StringComparison.Ordinal);
+        await service.DidNotReceiveWithAnyArgs().CreateAsync(default!, default);
     }
 
     [Fact]
@@ -197,6 +313,7 @@ public sealed class CreateMessageApiContractTests
                 actorId = "api"
             })
         };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", "reply-target-key");
 
         var response = await client.SendAsync(request);
         var payload = await response.Content.ReadAsStringAsync();
@@ -204,10 +321,9 @@ public sealed class CreateMessageApiContractTests
         var root = document.RootElement;
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("Invalid request", root.GetProperty("title").GetString());
-        Assert.Equal(400, root.GetProperty("status").GetInt32());
-        Assert.Equal("Invalid reply target", root.GetProperty("detail").GetString());
-        Assert.Equal("INVALID_REPLY_TARGET", root.GetProperty("code").GetString());
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("INVALID_REPLY_TARGET", root.GetProperty("error").GetString());
+        Assert.Equal("Invalid reply target", root.GetProperty("message").GetString());
     }
 
     [Fact]

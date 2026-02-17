@@ -149,7 +149,7 @@ public sealed class MessageReadRepository(DbConnectionFactory connectionFactory)
     private sealed class MessageListRow
     {
         public Guid Id { get; set; }
-        public string Channel { get; set; } = string.Empty;
+        public string Channel { get; set; } = null!;
         public MessageStatus Status { get; set; }
         public bool RequiresApproval { get; set; }
         public string? Subject { get; set; }

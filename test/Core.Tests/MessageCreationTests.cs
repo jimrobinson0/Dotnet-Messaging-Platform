@@ -1,3 +1,5 @@
+using Messaging.Core.Exceptions;
+
 namespace Messaging.Core.Tests;
 
 public class MessageCreationTests
@@ -17,7 +19,7 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            null,
+            "creation-key-1",
             Array.Empty<MessageParticipant>(),
             null));
 
@@ -42,7 +44,7 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            null,
+            "creation-key-2",
             Array.Empty<MessageParticipant>(),
             null));
 
@@ -52,7 +54,7 @@ public class MessageCreationTests
     }
 
     [Fact]
-    public void Idempotency_key_is_trimmed_and_empty_values_become_null()
+    public void Idempotency_key_is_trimmed_and_empty_values_throw()
     {
         var trimmed = Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
@@ -70,7 +72,8 @@ public class MessageCreationTests
             Array.Empty<MessageParticipant>(),
             null));
 
-        var empty = Message.Create(new MessageCreateSpec(
+        Assert.Equal("abc-key", trimmed.IdempotencyKey);
+        var emptyException = Assert.Throws<MessageValidationException>(() => Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
@@ -84,18 +87,16 @@ public class MessageCreationTests
             null,
             "   ",
             Array.Empty<MessageParticipant>(),
-            null));
-
-        Assert.Equal("abc-key", trimmed.IdempotencyKey);
-        Assert.Null(empty.IdempotencyKey);
+            null)));
+        Assert.Equal("IDEMPOTENCY_KEY_REQUIRED", emptyException.Code);
     }
 
     [Fact]
     public void Idempotency_key_longer_than_128_characters_throws()
     {
-        var tooLong = new string('x', 129);
+        var tooLong = new string('x', MessageConstraints.MaxIdempotencyKeyLength + 1);
 
-        Assert.Throws<ArgumentException>(() => Message.Create(new MessageCreateSpec(
+        var tooLongException = Assert.Throws<MessageValidationException>(() => Message.Create(new MessageCreateSpec(
             Guid.NewGuid(),
             "email",
             MessageContentSource.Direct,
@@ -110,6 +111,45 @@ public class MessageCreationTests
             tooLong,
             Array.Empty<MessageParticipant>(),
             null)));
+        Assert.Equal("IDEMPOTENCY_KEY_TOO_LONG", tooLongException.Code);
+    }
+
+    [Fact]
+    public void Channel_longer_than_50_characters_throws()
+    {
+        var tooLongChannel = new string('x', MessageConstraints.MaxChannelLength + 1);
+
+        var exception = Assert.Throws<MessageValidationException>(() => Message.Create(new MessageCreateSpec(
+            Guid.NewGuid(),
+            tooLongChannel,
+            MessageContentSource.Direct,
+            false,
+            null,
+            null,
+            null,
+            "Test",
+            "Hello",
+            null,
+            null,
+            "channel-too-long-key",
+            Array.Empty<MessageParticipant>(),
+            null)));
+
+        Assert.Equal("CHANNEL_TOO_LONG", exception.Code);
+    }
+
+    [Fact]
+    public void Participant_address_whitespace_throws()
+    {
+        var exception = Assert.Throws<MessageValidationException>(() => new MessageParticipant(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            MessageParticipantRole.To,
+            "   ",
+            null,
+            DateTimeOffset.MinValue));
+
+        Assert.Equal("PARTICIPANT_ADDRESS_REQUIRED", exception.Code);
     }
 
     [Fact]
@@ -129,7 +169,7 @@ public class MessageCreationTests
             "Hello",
             null,
             null,
-            null,
+            "reply-key",
             Array.Empty<MessageParticipant>(),
             replyToMessageId));
 
@@ -151,7 +191,7 @@ public class MessageCreationTests
             TextBody: "TestBody",
             HtmlBody: null,
             TemplateVariables: null,
-            IdempotencyKey: null,
+            IdempotencyKey: "participants-key",
             Participants: null!,
             ReplyToMessageId: null);
 

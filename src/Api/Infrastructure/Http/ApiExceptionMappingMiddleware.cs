@@ -1,8 +1,7 @@
 using System.Text.Json;
-using Messaging.Application;
+using Messaging.Api.Exceptions;
 using Messaging.Core.Exceptions;
 using Messaging.Persistence.Exceptions;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Messaging.Api.Infrastructure.Http;
 
@@ -25,100 +24,69 @@ public sealed class ApiExceptionMappingMiddleware
         {
             await _next(context);
         }
-        catch (BadRequestException ex)
+        catch (ApiContractException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
-        }
-        catch (InvalidMessageStatusTransitionException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Invalid Transition", ex.Message);
-        }
-        catch (ApprovalRuleViolationException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Approval Rule Violation", ex.Message);
-        }
-        catch (ConcurrencyException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Conflict", ex.Message);
-        }
-        catch (NotFoundException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status404NotFound, "Not Found", ex.Message);
+            await WriteErrorAsync(context, StatusCodes.Status400BadRequest, ex.ErrorCode, ex.Message);
         }
         catch (MessageValidationException ex)
         {
-            await WriteValidationErrorAsync(context, ex.Code, ex.Message);
+            await WriteErrorAsync(context, StatusCodes.Status400BadRequest, ex.Code, ex.Message);
         }
-        catch (ArgumentOutOfRangeException ex)
+        catch (MessageConflictException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
+            await WriteErrorAsync(context, StatusCodes.Status409Conflict, ex.Code, ex.Message);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidMessageStatusTransitionException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
+            await WriteErrorAsync(context, StatusCodes.Status409Conflict, "INVALID_MESSAGE_STATUS_TRANSITION", ex.Message);
         }
-        catch (JsonException ex)
+        catch (ApprovalRuleViolationException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", ex.Message);
+            await WriteErrorAsync(context, StatusCodes.Status409Conflict, "APPROVAL_RULE_VIOLATION", ex.Message);
+        }
+        catch (ConcurrencyException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status409Conflict, "CONFLICT", ex.Message);
+        }
+        catch (NotFoundException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status404NotFound, "NOT_FOUND", ex.Message);
+        }
+        catch (JsonException)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status400BadRequest, "INVALID_JSON", "Invalid JSON payload.");
         }
         catch (PersistenceException ex)
         {
             _logger.LogError(ex, "Persistence failure while processing request.");
-            await WriteProblemAsync(
+            await WriteErrorAsync(
                 context,
                 StatusCodes.Status500InternalServerError,
-                "Persistence failure",
+                "PERSISTENCE_FAILURE",
                 "A persistence error occurred.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception while processing request.");
-            await WriteProblemAsync(
+            await WriteErrorAsync(
                 context,
                 StatusCodes.Status500InternalServerError,
-                "Internal Server Error",
+                "INTERNAL_SERVER_ERROR",
                 "An unexpected error occurred.");
         }
     }
 
-    private static async Task WriteProblemAsync(
+    private static async Task WriteErrorAsync(
         HttpContext context,
         int statusCode,
-        string title,
-        string detail)
-    {
-        if (context.Response.HasStarted) return;
-
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/problem+json";
-
-        var problem = new ProblemDetails
-        {
-            Status = statusCode,
-            Title = title,
-            Detail = detail
-        };
-
-        await context.Response.WriteAsJsonAsync(problem);
-    }
-
-    private static async Task WriteValidationErrorAsync(
-        HttpContext context,
-        string code,
+        string errorCode,
         string message)
     {
         if (context.Response.HasStarted) return;
 
-        var problem = new ValidationProblemDetails
-        {
-            Title = "Invalid request",
-            Detail = message,
-            Status = StatusCodes.Status400BadRequest
-        };
-        problem.Extensions["code"] = code;
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
 
-        context.Response.StatusCode = problem.Status.Value;
-        context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(problem);
+        await context.Response.WriteAsJsonAsync(new ApiErrorResponse(errorCode, message));
     }
 }

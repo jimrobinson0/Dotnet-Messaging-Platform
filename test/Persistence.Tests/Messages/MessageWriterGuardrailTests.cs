@@ -1,5 +1,8 @@
 using System.Text.RegularExpressions;
+using Dapper;
 using Messaging.Persistence.Messages.Writes;
+using Messaging.Persistence.Tests.Infrastructure;
+using Npgsql;
 
 namespace Messaging.Persistence.Tests.Messages;
 
@@ -11,25 +14,23 @@ public sealed class MessageWriterGuardrailTests
     {
         var sql = NormalizeSql(MessageWriter.InsertIdempotentSql);
 
-        // Exactly one insert
-        Assert.Single(
-            Regex.Matches(sql, @"insert\s+into\s+core\.messages", RegexOptions.IgnoreCase));
+        // Must use CTE with inserted
+        Assert.Matches(new Regex(@"^\s*with\s+inserted\s+as\s*\(", RegexOptions.IgnoreCase), sql);
 
-        // Concurrency-safe idempotency
-        Assert.Matches(@"on\s+conflict\s+\(idempotency_key\)", sql);
-        Assert.Matches(@"do\s+update", sql);
-        Assert.Matches(@"set\s+updated_at\s*=\s*now\(\)", sql);
-        Assert.Matches(
-            new Regex(@"\(\s*xmax\s*=\s*0\s*\)\s+as\s+inserted", RegexOptions.IgnoreCase),
-            sql);
-        Assert.DoesNotMatch(@"set\s+id\s*=", sql);
+        // Must use INSERT ... ON CONFLICT DO NOTHING
+        Assert.Matches(new Regex(@"\bon\s+conflict\s*\(\s*idempotency_key\s*\)\s+do\s+nothing\b", RegexOptions.IgnoreCase), sql);
 
-        // Must return identity
-        Assert.Matches(@"returning\s+.*\bid\b", sql);
+        // Must use UNION ALL to select replay id
+        Assert.Matches(new Regex(@"\bunion\s+all\b", RegexOptions.IgnoreCase), sql);
 
-        // Guard against unsafe regressions
-        Assert.DoesNotContain("union all", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.False(Regex.IsMatch(sql, @"\b(xmin|ctid|tableoid)\b", RegexOptions.IgnoreCase));
+        // Must not update any columns in replay
+        Assert.DoesNotMatch(new Regex(@"\bdo\s+update\s+set\b", RegexOptions.IgnoreCase), sql);
+
+        // Must reference NOT EXISTS logic
+        Assert.Matches(new Regex(@"not\s+exists\s*\(\s*select\s+1\s+from\s+inserted\s*\)", RegexOptions.IgnoreCase), sql);
+
+        // Must return inserted id
+        Assert.Matches(new Regex(@"\breturning\s+id\b", RegexOptions.IgnoreCase), sql);
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public sealed class MessageWriterGuardrailTests
         var insertSql = NormalizeSql(MessageWriter.InsertIdempotentSql);
         var insertColumns = ExtractInsertColumns(insertSql);
 
-        Assert.DoesNotMatch(@"\bid\b", insertColumns);
+        Assert.DoesNotMatch(new Regex(@"\bid\b", RegexOptions.IgnoreCase), insertColumns);
         Assert.DoesNotContain("claimed_by", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("claimed_at", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sent_at", insertSql, StringComparison.OrdinalIgnoreCase);
@@ -55,16 +56,15 @@ public sealed class MessageWriterGuardrailTests
         Assert.DoesNotContain("set reply_to_message_id", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("set in_reply_to", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("set references_header", insertSql, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotMatch(@"@\bId\b", insertSql);
+        Assert.DoesNotContain("set updated_at", insertSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("returning id", insertSql, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Inserted", insertSql, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ExtractInsertColumns(string insertSql)
     {
         var match = Regex.Match(
             insertSql,
-            "insert\\s+into\\s+core\\.messages\\s*\\((?<columns>[\\s\\S]*?)\\)\\s*values",
+            "with\\s+inserted\\s+as\\s*\\(\\s*insert\\s+into\\s+core\\.messages\\s*\\((?<columns>[\\s\\S]*?)\\)\\s*values",
             RegexOptions.IgnoreCase);
 
         Assert.True(match.Success, "Could not locate insert column list in InsertIdempotentSql.");
@@ -74,5 +74,33 @@ public sealed class MessageWriterGuardrailTests
     private static string NormalizeSql(string sql)
     {
         return Regex.Replace(sql, @"\s+", " ").Trim();
+    }
+}
+
+public sealed class MessageWriterConstraintGuardrailTests(PostgresFixture fixture) : PostgresTestBase(fixture)
+{
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task IdempotencyKeyConstraintsExist()
+    {
+        await using var connection = new NpgsqlConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
+
+        var constraints = (await connection.QueryAsync<string>(
+            """
+            select tc.constraint_name
+            from information_schema.table_constraints tc
+            where tc.table_schema = 'core'
+              and tc.table_name = 'messages'
+              and tc.constraint_name in (
+                'uq_messages_idempotency_key',
+                'chk_messages_idempotency_key_length',
+                'chk_messages_idempotency_key_not_blank'
+              );
+            """)).ToHashSet(StringComparer.Ordinal);
+
+        Assert.Contains("uq_messages_idempotency_key", constraints);
+        Assert.Contains("chk_messages_idempotency_key_length", constraints);
+        Assert.Contains("chk_messages_idempotency_key_not_blank", constraints);
     }
 }
